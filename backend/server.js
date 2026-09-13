@@ -5,6 +5,7 @@ import uploadRouter from './routes/upload.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
@@ -21,8 +22,9 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api', uploadRouter);
 
-const frontendRoot = path.resolve(__dirname, '..');
-app.use(express.static(frontendRoot));
+app.get('/', (_req, res) => res.sendFile(path.join(projectRoot, 'index.html')));
+app.get('/app.js', (_req, res) => res.sendFile(path.join(projectRoot, 'app.js')));
+app.get('/styles.css', (_req, res) => res.sendFile(path.join(projectRoot, 'styles.css')));
 
 app.use((error, _req, res, _next) => {
   console.error(error);
