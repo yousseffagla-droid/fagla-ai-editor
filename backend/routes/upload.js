@@ -32,7 +32,8 @@ const upload = multer({
 router.post('/upload', upload.single('video'), async (req, res, next) => {
   if (!req.file) return res.status(400).json({ error: 'No video file uploaded' });
 
-  const audioPath = path.join(audioDir, `${path.parse(req.file.filename).name}.wav`);
+  const jobId = path.parse(req.file.filename).name;
+  const audioPath = path.join(audioDir, `${jobId}.wav`);
 
   try {
     await extractWav16k(req.file.path, audioPath);
@@ -40,10 +41,8 @@ router.post('/upload', upload.single('video'), async (req, res, next) => {
     res.status(201).json({
       ok: true,
       job: {
-        id: path.parse(req.file.filename).name,
+        id: jobId,
         originalName: req.file.originalname,
-        videoPath: req.file.path,
-        audioPath,
         audio: {
           format: 'wav',
           sampleRate: 16000,
