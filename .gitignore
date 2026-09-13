@@ -1,5 +1,11 @@
 node_modules/
 storage/uploads/*
 storage/audio/*
+*.mp4
+*.mov
+*.webm
+*.wav
+*.m4a
 .env
+.env.*
 .DS_Store
