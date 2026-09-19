@@ -1,6 +1,6 @@
 import { createAgentContext, createAgentResult } from '../agents/contracts.js';
 import { PERMISSION_DECISIONS } from '../permissions/policy.js';
-import { PermissionDeniedError, AgentExecutionError, InvalidToolInvocationError, ValidationError, ApprovalRequiredError, FaglaError } from '../errors/index.js';
+import { PermissionDeniedError, AgentExecutionError, InvalidToolInvocationError, ValidationError, FaglaError } from '../errors/index.js';
 import { TASK_STATUSES, transitionTask } from '../tasks/task.js';
 import { createLLMContext, sanitizeToolResult, LLM_CONTEXT_LIMITS } from '../llm/context-builder.js';
 import { validateCodingDecision } from '../llm/response-schema.js';
@@ -33,7 +33,7 @@ export class AgentRuntime {
       if(currentTask.status===TASK_STATUSES.PLANNED){currentTask=transitionTask(currentTask,TASK_STATUSES.RUNNING);await this.persist(currentTask);}
       await this.auditLogger.append({event:'agent.executed',taskId:currentTask.id,agentId:execution.agentId,executionId:execution.executionId});
       const plan=await agent.plan({...context,task:currentTask});if(!plan||!Array.isArray(plan.steps))throw new ValidationError('Agent plan must contain a steps array');
-      for(const step of plan.steps)await this.executeAuthorizedStep({step,currentTask,project,agent,execution,coding:false});
+      for(const step of plan.steps){const outcome=await this.executeAuthorizedStep({step,currentTask,project,agent,execution,coding:false});if(outcome?.status==='WAITING_FOR_APPROVAL')return createAgentResult({status:'WAITING_FOR_APPROVAL',output:{approvalId:outcome.approvalId},observations:['Execution paused until explicit human approval.']});}
       currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);
       await this.auditLogger.append({event:'validation.completed',taskId:currentTask.id,executionId:execution.executionId});
       const result=await agent.execute({...context,task:currentTask});
@@ -80,11 +80,11 @@ export class AgentRuntime {
             if(!this.toolRegistry.has(step.tool))throw new InvalidToolInvocationError('Unknown tool: '+step.tool);
             await this.auditLogger.append({event:'llm.tool_call.validated',taskId:currentTask.id,agentId:execution.agentId,tool:step.tool,executionId:execution.executionId});
             const result=await this.executeAuthorizedStep({step,currentTask,project,agent,execution,coding:true});
+            if(result?.status==='WAITING_FOR_APPROVAL')return createAgentResult({status:'WAITING_FOR_APPROVAL',output:{approvalId:result.approvalId},observations:[...observations]});
             const safe=sanitizeToolResult(result);toolResults.push({tool:step.tool,result:safe});observations.push({tool:step.tool,status:'success'});
             if(step.tool==='coding.run_tests')testResults.push(safe);
           }catch(error){
             await this.auditLogger.append({event:'llm.tool_call.rejected',taskId:currentTask.id,agentId:execution.agentId,tool:step.tool,error:error.name});
-            if(error.name==='ApprovalRequiredError'){ return createAgentResult({status:'WAITING_FOR_APPROVAL',output:{approvalRequired:true,approvalId:error.approvalId??null},observations:[...observations]}); }
             if(step.tool==='coding.run_tests'&&error instanceof ValidationError){
               const fingerprint=step.tool+':'+JSON.stringify(step.input??{});
               const count=(failures.get(fingerprint)??0)+1;failures.set(fingerprint,count);
@@ -116,7 +116,7 @@ export class AgentRuntime {
       const approval=await this.approvalStore.create({taskId:currentTask.id,projectId:project.id,tool:tool.name,reason:decision.reason,executionId:execution.executionId});
       const waiting=transitionTask(currentTask,TASK_STATUSES.WAITING_APPROVAL);await this.persist(waiting);
       await this.auditLogger.append({event:coding?'coding.approval.requested':'approval.requested',taskId:waiting.id,approvalId:approval.id,tool:tool.name,executionId:execution.executionId});
-      const approvalError=new ApprovalRequiredError('Approval required for '+tool.name,{code:'APPROVAL_REQUIRED'}); approvalError.approvalId=approval.id; throw approvalError;
+      return {status:'WAITING_FOR_APPROVAL',approvalId:approval.id};
     }
     return this.toolExecutor.execute(execution,step);
   }
