@@ -104,8 +104,7 @@ test('security violations are not treated as correction opportunities',async()=>
   try{
     const denied={type:'tool_call',goal:'unsafe',assumptions:[],filesToInspect:[],filesToChange:[],actions:[],tests:[],risks:[],tool:'coding.read_file',arguments:{path:'../../secret.txt'},result:null};
     ctx.agent.planner=new CodingPlanner(new MockLLMProvider([denied]));
-    const result=await ctx.runtime.run({request:'unsafe',task:ctx.task,project:{id:'engineering-project'},workspace:ctx.workspace,agent:ctx.agent,execution:ctx.execution});
-    assert.equal(result.status,'FAILED'); assert.equal(result.error.name,'PermissionDeniedError');
+    await assert.rejects(()=>ctx.runtime.run({request:'unsafe',task:ctx.task,project:{id:'engineering-project'},workspace:ctx.workspace,agent:ctx.agent,execution:ctx.execution}),PermissionDeniedError);
   }finally{await fs.rm(ctx.root,{recursive:true,force:true});}
 });
 
