@@ -1,26 +1,25 @@
 # Changelog
 
-## Unreleased — Milestone 1
+## Unreleased — Milestone 3
 
 ### Added
-- Explicit Core Domain contracts and boundaries.
-- Task state machine with valid and invalid transition enforcement.
-- Hardened ExecutionContext with task/project/agent/workspace/execution identifiers and scoped permissions.
-- ToolExecution contract plus separate ToolRegistry and ToolExecutor boundaries.
-- Runtime permission denial and approval gates.
-- Typed core error hierarchy.
-- Replaceable TaskStore, ApprovalStore, MemoryStore, and AuditLogStore boundaries with in-memory implementations.
-- Structured audit events and sensitive-field redaction.
-- Core Platform regression and lifecycle tests.
+- Real OpenAI provider adapter behind the existing LLMProvider abstraction.
+- Strict structured Coding Agent decision schema for plans, tool calls, and final results.
+- Bounded LLM context builder with sensitive-field/path filtering.
+- Controlled model-driven tool loop with observation and replanning.
+- Provider timeout/error handling and bounded transient retries.
+- LLM interaction audit events and safe usage metadata.
+- Optional real-provider integration test gated by explicit environment configuration.
+- Context, iteration, tool-call, and repeated-failure limits.
 
 ### Preserved
-- Existing Arabic-first Video Editor frontend.
-- Existing upload and FFmpeg audio extraction pipeline.
+- Milestone 0/1 Core Platform behavior.
+- Milestone 2 Coding Agent state machine, ToolRegistry, PermissionPolicy, workspace boundary, approval rules, and command allowlist.
+- Existing Video Editor domain and media pipeline.
 
 ### Not included
-- LLM integration or provider APIs.
-- Coding, Research, or QA agents.
-- Autonomous planning.
-- Shell/filesystem tools or real sandboxing.
-- Git merge automation.
-- PostgreSQL or external integrations.
+- Generic shell execution.
+- Unrestricted filesystem or network access.
+- Automatic Git merge.
+- Autonomous deployment.
+- Social, image, video, Photoshop, or multi-agent integrations.
