@@ -31,3 +31,20 @@ Provider timeout, provider unavailability, malformed structured output, and tran
 ## Remaining security limitations
 
 Milestone 3 still does not provide OS/container sandboxing, malware scanning, resource quotas beyond agent-loop limits, network egress controls for tools, prompt-injection defenses, a dedicated secret manager, or autonomous deployment. Real-provider use should therefore remain limited to isolated task workspaces until those controls are added.
+
+## Milestone 4 controls
+
+- Real project coding operates only inside the existing isolated workspace abstraction.
+- Project inspection and file discovery are bounded and exclude sensitive/build/vendor paths.
+- File reads and writes continue through registered tools and workspace path validation.
+- Test execution remains the exact `npm test` allowlist; no generic shell tool exists.
+- Test failures are observations. Permission, traversal, protected-workspace, command-policy, and other security failures are not converted into correction prompts.
+- Self-correction is limited to 3 attempts and repeated identical failures terminate the loop.
+- Final validation inspects the resulting Git diff through the existing `coding.git_diff` tool.
+- Git commit and push remain approval-gated; Git merge remains denied.
+- Dependency installation and deployment are not implemented.
+- No production workspace is exposed to the LLM.
+
+### Remaining limitations
+
+The platform still lacks OS/container sandboxing, malware scanning, dedicated secret management, unrestricted network egress controls, complete prompt-injection defenses, and autonomous deployment. Automatic cleanup is also not destructive in V1; task workspaces are lifecycle-tagged but the runtime does not delete user data.
