@@ -104,6 +104,7 @@ export class AgentRuntime {
 
   async executeAuthorizedStep({step,currentTask,project,agent,execution,coding}){
     if(!step?.tool)throw new InvalidToolInvocationError('Tool invocation requires a tool');
+    if(coding)validateCodingInvocation(step.tool,step.input);
     if(!this.toolRegistry.has(step.tool))throw new InvalidToolInvocationError('Unknown tool: '+step.tool);
     const tool=this.toolRegistry.get(step.tool);
     await this.auditLogger.append({event:coding?'coding.tool.requested':'tool.requested',taskId:currentTask.id,agentId:execution.agentId,tool:tool.name,executionId:execution.executionId});
