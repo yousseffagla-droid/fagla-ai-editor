@@ -49,6 +49,7 @@ export class AgentRuntime {
     const observations=[],toolResults=[],testResults=[],validationResults=[],progress=[],corrections=[];
     const failureFingerprints=new Map();
     let iterations=0,toolCalls=0,correctionAttempts=0,lastTest=null;
+    const MAX_CORRECTION_ATTEMPTS=3;
 
     const recordProgress=async (cycle,phase,action,tool,result,testStatus=null)=>{
       const item={cycle,phase,action,tool:tool??null,result,testStatus};
@@ -84,9 +85,9 @@ export class AgentRuntime {
             throw new ValidationError('Final model decision rejected because the latest test run failed');
           }
           progress.push({cycle:correctionAttempts+1,phase:'VALIDATE',action:'finalize',tool:null,result:'pending',testStatus:lastTest?.success?'passed':lastTest?'failed':'not_run'});
-          const diffStep={tool:'coding.git_diff',input:{}};
-          const diff=await this.executeAuthorizedStep({step:diffStep,currentTask,project,agent,execution,coding:true});
-          const safeDiff=sanitizeToolResult(diff);validationResults.push({type:'git_diff',result:safeDiff});
+          let safeDiff={available:false,skipped:true,reason:'GIT permission not granted'};
+          if(execution.permissions.includes('GIT')){const diffStep={tool:'coding.git_diff',input:{}};const diff=await this.executeAuthorizedStep({step:diffStep,currentTask,project,agent,execution,coding:true});safeDiff=sanitizeToolResult(diff);}
+          validationResults.push({type:'git_diff',result:safeDiff});
           currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);
           await this.auditLogger.append({event:'engineering.validation.started',taskId:currentTask.id,executionId:execution.executionId});
           const result=createAgentResult({status:'COMPLETED',output:{status:'COMPLETED',taskId:currentTask.id,projectId:execution.projectId,filesChanged:agent.lastPlan?.filesToChange??[],tests:testResults,corrections,validation:{diff:safeDiff,passed:true},warnings:[],remainingIssues:[],progress,auditSummary:{iterations,toolCalls}},observations:[...observations],validation:{iterations,toolCalls,progress}});
@@ -132,7 +133,7 @@ export class AgentRuntime {
                 correctionAttempts++;
                 corrections.push({attempt:correctionAttempts,failure});
                 await this.auditLogger.append({event:'engineering.correction.started',taskId:currentTask.id,executionId:execution.executionId,attempt:correctionAttempts});
-                if(correctionAttempts>3)return this.finishFailedValidation(currentTask,execution,agent,progress,corrections,testResults,'Maximum correction attempts exceeded');
+                if(correctionAttempts>=MAX_CORRECTION_ATTEMPTS)return this.finishFailedValidation(currentTask,execution,agent,progress,corrections,testResults,'Maximum correction attempts exceeded');
                 if(agent.state==='TESTING')agent.transition('EXECUTING');
               }
             }
