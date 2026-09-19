@@ -1,25 +1,26 @@
 # Changelog
 
-## Unreleased — Milestone 0
+## Unreleased — Milestone 1
 
 ### Added
-- Agent, context, and result contracts.
-- Controlled runtime lifecycle boundary.
-- Central tool registry and executor boundary.
-- Runtime-level permission policy.
-- Explicit approval store.
-- Isolated project workspace rules.
-- Task, memory, audit-log, and typed-error foundations.
-- Automated contract/runtime tests.
-- Architecture and security documentation.
+- Explicit Core Domain contracts and boundaries.
+- Task state machine with valid and invalid transition enforcement.
+- Hardened ExecutionContext with task/project/agent/workspace/execution identifiers and scoped permissions.
+- ToolExecution contract plus separate ToolRegistry and ToolExecutor boundaries.
+- Runtime permission denial and approval gates.
+- Typed core error hierarchy.
+- Replaceable TaskStore, ApprovalStore, MemoryStore, and AuditLogStore boundaries with in-memory implementations.
+- Structured audit events and sensitive-field redaction.
+- Core Platform regression and lifecycle tests.
 
 ### Preserved
 - Existing Arabic-first Video Editor frontend.
 - Existing upload and FFmpeg audio extraction pipeline.
 
 ### Not included
+- LLM integration or provider APIs.
+- Coding, Research, or QA agents.
 - Autonomous planning.
-- Production agents.
-- Database migration.
-- Real branch/workspace provisioning.
-- Powerful filesystem, shell, deploy, publish, or messaging tools.
+- Shell/filesystem tools or real sandboxing.
+- Git merge automation.
+- PostgreSQL or external integrations.
