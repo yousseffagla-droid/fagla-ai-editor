@@ -1,0 +1,1 @@
+export class DeterministicResearchPlanner{constructor({queries=[]}={}){this.queries=queries;}async execute(context){const q=this.queries.length?this.queries:[String(context.request).slice(0,240)];return{objective:context.request,queries:q.slice(0,3),sourceRequirements:[],maxSources:5,maxQueries:Math.min(3,q.length)};}}

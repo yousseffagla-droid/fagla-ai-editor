@@ -55,3 +55,10 @@ The platform still lacks OS/container sandboxing, malware scanning, dedicated se
 The Orchestrator does not own permissions. A capability receives only the permissions already declared by its underlying agent/runtime contract. Unknown capabilities, unsupported task types, invalid dependency graphs, and orchestration-limit violations fail safely.
 
 Approval-required operations remain approval-required under AgentRuntime. The Orchestrator never auto-approves. No arbitrary shell, unrestricted filesystem/network access, dependency installation, deployment, production access, automatic push, or merge was added.
+
+
+## Milestone 6 — Controlled Web Research
+
+`research.search` is explicitly permission-gated by `RESEARCH`, has bounded query/result inputs, and is registered in the existing ToolRegistry. No generic URL fetcher or unrestricted HTTP client was added. Research receives no shell, filesystem-write, Git-write, deployment, production, or unrestricted network authority. Approval remains authoritative for tools whose risk policy requires it.
+
+Web content is data, never instructions. Source snippets cannot alter the agent's permissions or execution policy.

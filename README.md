@@ -109,3 +109,8 @@ The platform now includes a bounded orchestration layer above the existing Codin
 Research is a deterministic controlled adapter only; it does not provide unrestricted web/network access.
 
 Security authority remains in the existing AgentRuntime, ToolRegistry, PermissionPolicy, Workspace boundary, and Approval system. The Orchestrator cannot grant permissions or directly execute tools.
+
+
+## Milestone 6 — Research Agent V1
+
+FAGLA now has a controlled Research Agent behind the existing AgentRuntime. Research plans are bounded, search is an explicit `RESEARCH`-permission tool, sources are validated/deduplicated, findings retain evidence attribution, and external web content is treated strictly as untrusted data. Normal CI uses deterministic search fixtures and requires no network or API key.

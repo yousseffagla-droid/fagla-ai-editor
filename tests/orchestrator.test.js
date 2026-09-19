@@ -17,6 +17,9 @@ import { MockLLMProvider } from '../backend/llm/provider.js';
 import { registerCodingTools } from '../backend/tools/coding-tools.js';
 import { createCapability } from '../backend/orchestrator/contracts.js';
 import { ValidationError, PermissionDeniedError } from '../backend/errors/index.js';
+import { ResearchAgent } from '../backend/agents/research-agent.js';
+import { DeterministicResearchPlanner } from '../backend/agents/research-planner.js';
+import { registerResearchTools } from '../backend/tools/research-tools.js';
 
 const fixture=path.resolve('tests/fixtures/engineering-project');
 const passingFixture=path.resolve('tests/fixtures/coding-project');
@@ -30,25 +33,27 @@ function decisions({commit=false}={}){
 async function setup({research=false,commit=false,permissions=null,sourceFixture=passingFixture}={}){
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'fagla-orch-'));await fs.cp(sourceFixture,root,{recursive:true});
   const auditLogger=new AuditLogger(),registry=new ToolRegistry();registerCodingTools({registry,auditLogger});
+  registerResearchTools({registry,searchProvider:{search:async()=>({results:[{title:'Fixture Source',url:'https://example.com/source',snippet:'Deterministic competitor finding.',domain:'example.com'}]})}});
   const approvals=new InMemoryApprovalStore({auditLogger});
   const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:approvals,auditLogger});
   const agent=new CodingAgent({planner:new CodingPlanner(new MockLLMProvider(decisions({commit}))),auditLogger});
-  const capabilities=new CapabilityRegistry();capabilities.register(createResearchCapability());
+  const researchAgent=new ResearchAgent({toolExecutor:new ToolExecutor(registry),auditLogger,planner:new DeterministicResearchPlanner({queries:['real estate competitors']})});
+  const capabilities=new CapabilityRegistry();capabilities.register(createResearchCapability({runtime,researchAgent,project:{id:'p'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root})}));
   let captured=null;
   const coding=createCodingCapability({runtime,codingAgent:agent,project:{id:'p',type:'node'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root}),auditLogger});
   const wrapped=createCapability({id:'coding',description:'wrapped coding',supportedTaskTypes:['coding'],execute:async(ctx,task)=>{captured={request:task.userRequest,input:task.input,permissions:[...agent.permissions]};return coding.execute(ctx,task);}});
   capabilities.register(wrapped);
   const orchestrator=new Orchestrator({capabilityRegistry:capabilities,auditLogger,limits:{maxTasks:8,maxSteps:12,maxDependencyDepth:8}});
-  return {root,auditLogger,approvals,runtime,agent,capabilities,orchestrator,captured:()=>captured};
+  return {root,auditLogger,approvals,runtime,agent,researchAgent,capabilities,orchestrator,captured:()=>captured};
 }
 test('orchestrator initializes with authoritative state machine',()=>{const o=new Orchestrator({capabilityRegistry:new CapabilityRegistry(),auditLogger:new AuditLogger()});assert.equal(o.state,ORCHESTRATOR_STATES.PLANNING);});
 test('task understanding classifies coding, research and composite requests',()=>{const d=new TaskDecomposer();assert.equal(d.understand('fix the website').type,'coding');assert.equal(d.understand('research competitors').type,'research');assert.equal(d.understand('research competitors then build a landing page').type,'composite');});
-test('capability registry rejects duplicates and routes by task type',()=>{const r=new CapabilityRegistry();const c=createResearchCapability();r.register(c);assert.equal(r.get('research'),c);assert.equal(r.discover('research').length,1);assert.throws(()=>r.register(c),ValidationError);});
+test('capability registry rejects duplicates and routes by task type',()=>{const r=new CapabilityRegistry();const c=createCapability({id:'research',description:'test',supportedTaskTypes:['research'],execute:async()=>({status:'COMPLETED'})});r.register(c);assert.equal(r.get('research'),c);assert.equal(r.discover('research').length,1);assert.throws(()=>r.register(c),ValidationError);});
 test('composite decomposition creates a dependency graph',()=>{const d=new TaskDecomposer();const tasks=d.decompose({request:'research competitors then build a landing page',intent:d.understand('research competitors then build a landing page'),rootTaskId:'root'});assert.equal(tasks.length,2);assert.deepEqual(tasks[1].dependencies,['root:research']);assert.doesNotThrow(()=>d.validate(tasks));});
 test('dependency cycles are rejected',()=>{const d=new TaskDecomposer();assert.throws(()=>d.validate([{id:'a',dependencies:['b']},{id:'b',dependencies:['a']}]),/Cyclic/);});
 test('unsupported task returns structured unsupported result',async()=>{const x=await setup();try{const r=await x.orchestrator.run({userRequest:'tell me a joke',project:{id:'p'},workspaceFactory:async()=>null,runtime:x.runtime,codingAgent:x.agent});assert.equal(r.status,'completed');assert.equal(r.tasks[0].output.status,'UNSUPPORTED');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
 test('coding-only orchestration uses the existing Coding Agent runtime',async()=>{const x=await setup();try{const r=await x.orchestrator.run({userRequest:'update the project',project:{id:'p',type:'node'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root:x.root}),runtime:x.runtime,codingAgent:x.agent});assert.equal(r.status,'completed');assert.equal(r.results[0].capability,'coding');assert.equal(r.validation.requiredTasksCompleted,true);}finally{await fs.rm(x.root,{recursive:true,force:true});}});
-test('research routes to the deterministic Research capability',async()=>{const x=await setup();try{const r=await x.orchestrator.run({userRequest:'research competitors',project:{id:'p'},workspaceFactory:async()=>null,runtime:x.runtime,codingAgent:x.agent});assert.equal(r.status,'completed');assert.equal(r.results[0].output.output.type,'research.result');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
+test('research routes to the real Research Agent capability',async()=>{const x=await setup();try{const r=await x.orchestrator.run({userRequest:'research competitors',project:{id:'p'},workspaceFactory:async()=>null,runtime:x.runtime,codingAgent:x.agent});assert.equal(r.status,'completed');assert.equal(r.results[0].output.output.type,'research.result');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
 test('composite execution runs research before coding and passes structured results',async()=>{const x=await setup();try{const r=await x.orchestrator.run({userRequest:'research competitors then update the project',project:{id:'p',type:'node'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root:x.root}),runtime:x.runtime,codingAgent:x.agent});assert.equal(r.status,'completed');assert.equal(r.tasks[0].status,'completed');assert.equal(r.tasks[1].status,'completed');assert.equal(x.captured().input.context[0].output.type,'research.result');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
 test('result aggregation preserves task outputs and validation',()=>{const a=new ResultAggregator();const tasks=[{id:'a',type:'research',assignedCapability:'research',status:'completed',output:{x:1},errors:[]}];const v=a.validate(tasks);const r=a.aggregate('root',tasks,v);assert.equal(r.status,'completed');assert.equal(r.results[0].output.x,1);});
 test('task failure stops dependent orchestration',async()=>{const x=await setup();const failing=createCapability({id:'research',description:'fail',supportedTaskTypes:['research'],execute:async()=>{throw new Error('research failed')}});x.capabilities.capabilities.set('research',failing);try{await assert.rejects(()=>x.orchestrator.run({userRequest:'research competitors then update the project',project:{id:'p'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root:x.root}),runtime:x.runtime,codingAgent:x.agent}),/research failed/);}finally{await fs.rm(x.root,{recursive:true,force:true});}});

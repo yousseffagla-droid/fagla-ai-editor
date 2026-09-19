@@ -22,6 +22,7 @@ export class AgentRuntime {
 
   async run(args){
     if(args.agent?.name==='coding-agent-v1')return this.runCoding(args);
+    if(args.agent?.name==='research-agent-v1')return this.runResearch(args);
     return this.runLegacy(args);
   }
 
@@ -40,6 +41,20 @@ export class AgentRuntime {
       if(!result||!['COMPLETED','FAILED','WAITING_FOR_APPROVAL'].includes(result.status))throw new AgentExecutionError('Agent returned an invalid result');
       if(result.status==='COMPLETED'){currentTask=transitionTask(currentTask,TASK_STATUSES.COMPLETED);await this.persist(currentTask);await this.auditLogger.append({event:'task.completed',taskId:currentTask.id,executionId:execution.executionId});}
       else if(result.status==='FAILED'){currentTask=transitionTask(currentTask,TASK_STATUSES.FAILED);await this.persist(currentTask);await this.auditLogger.append({event:'task.failed',taskId:currentTask.id,executionId:execution.executionId});}
+      return result;
+    }catch(error){return this.fail(currentTask,execution,agent,error,false);}
+  }
+
+  async runResearch({request,task,project,workspace,agent,execution,memory={}}){
+    let currentTask=task;
+    const context=createAgentContext({request,task:currentTask,project,execution,workspace,memory});
+    await this.auditLogger.append({event:'task.started',taskId:execution.taskId,projectId:execution.projectId,agentId:execution.agentId,workspaceId:execution.workspaceId,executionId:execution.executionId});
+    try{
+      if(currentTask.status===TASK_STATUSES.CREATED){currentTask=transitionTask(currentTask,TASK_STATUSES.PLANNED);await this.persist(currentTask);}
+      if(currentTask.status===TASK_STATUSES.PLANNED){currentTask=transitionTask(currentTask,TASK_STATUSES.RUNNING);await this.persist(currentTask);}
+      const result=await agent.execute({...context,executeTool:step=>this.executeAuthorizedStep({step,currentTask,project,agent,execution,coding:false}),task:{...currentTask,question:currentTask.question||request,maxSources:currentTask.maxSources||5,maxQueries:currentTask.maxQueries||3,maxSteps:currentTask.maxSteps||8}});
+      if(!result||!['COMPLETED','FAILED','WAITING_FOR_APPROVAL'].includes(result.status))throw new AgentExecutionError('Research agent returned an invalid result');
+      if(result.status==='COMPLETED'){currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);await this.auditLogger.append({event:'validation.completed',taskId:currentTask.id,executionId:execution.executionId});currentTask=transitionTask(currentTask,TASK_STATUSES.COMPLETED);await this.persist(currentTask);await this.auditLogger.append({event:'task.completed',taskId:currentTask.id,executionId:execution.executionId});}
       return result;
     }catch(error){return this.fail(currentTask,execution,agent,error,false);}
   }
