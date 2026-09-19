@@ -48,3 +48,10 @@ Milestone 3 still does not provide OS/container sandboxing, malware scanning, re
 ### Remaining limitations
 
 The platform still lacks OS/container sandboxing, malware scanning, dedicated secret management, unrestricted network egress controls, complete prompt-injection defenses, and autonomous deployment. Automatic cleanup is also not destructive in V1; task workspaces are lifecycle-tagged but the runtime does not delete user data.
+
+
+## Milestone 5 — Orchestrator security boundary
+
+The Orchestrator does not own permissions. A capability receives only the permissions already declared by its underlying agent/runtime contract. Unknown capabilities, unsupported task types, invalid dependency graphs, and orchestration-limit violations fail safely.
+
+Approval-required operations remain approval-required under AgentRuntime. The Orchestrator never auto-approves. No arbitrary shell, unrestricted filesystem/network access, dependency installation, deployment, production access, automatic push, or merge was added.
