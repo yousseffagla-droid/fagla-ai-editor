@@ -62,7 +62,7 @@ export function registerCodingTools({ registry, auditLogger }) {
       const sourceDirectories = dirs.filter(name => /^(src|lib|app|backend|frontend)$/i.test(name));
       const testDirectories = dirs.filter(name => /^(test|tests|spec|__tests__)$/i.test(name));
       const configurationFiles = names.filter(name => /^(package\.json|tsconfig\.json|vite\.config\.|webpack\.config\.|eslint\.config\.|jest\.config\.|vitest\.config\.)/i.test(name));
-      return { projectType: packageJson ? 'node' : 'unknown', packageManager: names.includes('package-lock.json') ? 'npm' : names.includes('yarn.lock') ? 'yarn' : names.includes('pnpm-lock.yaml') ? 'pnpm' : null, files:names, sourceDirectories, testDirectories, configurationFiles, entryPoints: packageJson?.main ? [packageJson.main] : [], scripts, dependencies: Object.keys(packageJson?.dependencies ?? {}) };
+      return { projectType: packageJson ? 'node' : 'unknown', packageManager: names.includes('package-lock.json') ? 'npm' : names.includes('yarn.lock') ? 'yarn' : names.includes('pnpm-lock.yaml') ? 'pnpm' : (packageJson ? 'npm' : null), files:names, sourceDirectories, testDirectories, configurationFiles, entryPoints: packageJson?.main ? [packageJson.main] : [], scripts, dependencies: Object.keys(packageJson?.dependencies ?? {}) };
     }),
     tool('coding.discover_files', 'Find bounded likely-relevant project files by query.', 'READ', 'LOW', async (input, execution) => {
       const workspace=execution.metadata.workspace; const query=String(input?.query ?? '').toLowerCase().trim(); if(!query) throw new ValidationError('Discovery query is required');
@@ -83,8 +83,7 @@ export function registerCodingTools({ registry, auditLogger }) {
       return { stdout: result.stdout, stderr: result.stderr };
     }),
     tool('coding.git_diff', 'Read the current git diff inside the workspace.', 'GIT', 'LOW', async (_input, execution) => {
-      const result = await execFileAsync('git', ['diff', '--'], { cwd: execution.metadata.workspace.root });
-      return { stdout: result.stdout, stderr: result.stderr };
+      try { const result = await execFileAsync('git', ['diff', '--'], { cwd: execution.metadata.workspace.root }); return { available:true, stdout: result.stdout, stderr: result.stderr }; } catch (error) { if(error?.code===129 && /Not a git repository/i.test(error.stderr??'')) return { available:false, stdout:'', stderr:'Workspace is not a Git repository; diff unavailable.' }; throw error; }
     }),
     tool('coding.git_commit', 'Create a git commit after human approval.', 'GIT', 'MEDIUM', async () => { throw new ValidationError('git commit is approval-gated'); }),
     tool('coding.git_push', 'Push changes after human approval.', 'GIT', 'MEDIUM', async () => { throw new ValidationError('git push is approval-gated'); }),
