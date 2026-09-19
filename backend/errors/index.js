@@ -14,3 +14,4 @@ export class TimeoutError extends FaglaError {}
 export class ExternalServiceError extends FaglaError {}
 export class ModelError extends FaglaError {}
 export class CommandNotAllowedError extends FaglaError {}
+export class ProviderError extends FaglaError {}
