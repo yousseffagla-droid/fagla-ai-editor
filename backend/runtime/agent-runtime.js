@@ -143,6 +143,19 @@ export class AgentRuntime {
             throw error;
           }
         }
+        if(decision.type==='plan' && lastTest?.success){
+          let safeDiff={available:false,skipped:true,reason:'GIT permission not granted'};
+          if(execution.permissions.includes('GIT')){const diff=await this.executeAuthorizedStep({step:{tool:'coding.git_diff',input:{}},currentTask,project,agent,execution,coding:true});safeDiff=sanitizeToolResult(diff);}
+          validationResults.push({type:'git_diff',result:safeDiff});
+          currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);
+          await this.auditLogger.append({event:'engineering.validation.completed',taskId:currentTask.id,executionId:execution.executionId,passed:true});
+          if(agent.state==='EXECUTING')agent.markTesting();
+          if(agent.state==='TESTING')agent.transition('VALIDATING');
+          if(agent.state==='VALIDATING')agent.transition('COMPLETED');
+          currentTask=transitionTask(currentTask,TASK_STATUSES.COMPLETED);await this.persist(currentTask);
+          await this.auditLogger.append({event:'engineering.completed',taskId:currentTask.id,executionId:execution.executionId,corrections:correctionAttempts});
+          return createAgentResult({status:'COMPLETED',output:{status:'COMPLETED',taskId:currentTask.id,projectId:execution.projectId,filesChanged:agent.lastPlan?.filesToChange??[],tests:testResults,corrections,validation:{diff:safeDiff,passed:true},warnings:[],remainingIssues:[],progress,auditSummary:{iterations,toolCalls}},observations:[...observations],validation:{iterations,toolCalls,progress}});
+        }
       }
       await this.auditLogger.append({event:'llm.loop_limit_reached',taskId:currentTask.id,agentId:execution.agentId,iterations,toolCalls});
       return this.finishFailedValidation(currentTask,execution,agent,progress,corrections,testResults,'Engineering loop limit reached');
