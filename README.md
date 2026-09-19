@@ -7,98 +7,57 @@ Arabic-first AI video editor MVP.
 - Frontend: HTML, CSS, JavaScript
 - Backend: Node.js + Express
 - Uploads: Multer
-- Media processing: FFmpeg via `ffmpeg-static`
+- Media processing: FFmpeg via ffmpeg-static
 - First pipeline stage: video upload → WAV 16 kHz mono extraction
-- Agent platform foundation: JavaScript runtime contracts, tool registry, permissions, approvals, project-workspace boundary, audit logging, and tests
+- Core Agent Platform: contracts, task lifecycle, runtime, tool registry/executor, permissions, approvals, workspace boundary, persistence interfaces, audit logging, and tests
 
-## Agent platform foundation
+## Core Platform — Milestone 1
 
-Milestone 0 establishes the architectural boundary for FAGLA AI without replacing the existing Video Editor.
+Implemented:
 
-Implemented in this milestone:
+- Explicit Task lifecycle and invalid-transition protection
+- Agent, AgentContext, and AgentResult contracts
+- ToolDefinition, ToolRegistry, ToolExecution, and ToolExecutor boundaries
+- Runtime-level permission enforcement and approval gate
+- Hardened ExecutionContext with scoped permissions and no secrets
+- Typed core error hierarchy
+- Replaceable in-memory TaskStore, ApprovalStore, MemoryStore, and AuditLogStore boundaries
+- Sanitized audit events
+- Regression and lifecycle tests
 
-- Agent, AgentContext, AgentResult contracts
-- Runtime lifecycle: REQUEST → PLAN → EXECUTE → OBSERVE → VALIDATE → APPROVAL → COMPLETE
-- ToolDefinition, ToolRegistry, and ToolExecutor
-- Runtime-level risk policy and approval gate
-- Project workspace isolation rules for future Coding Agent execution
-- Task, approval, memory, audit-log, and error foundations
-- Node test infrastructure and GitHub Actions test workflow
+The Core Platform is infrastructure, not a set of autonomous product agents.
 
-Not implemented yet:
+### Future agents — not implemented
 
-- Autonomous planning
-- Production Coding, Research, QA, or Main Orchestrator agents
-- Database persistence
-- Real branch/workspace provisioning or merge automation
-- Powerful shell/filesystem/deployment/publishing tools
+- Coding Agent
+- Research Agent
+- QA Agent
+- Main Orchestrator
 - LLM provider integration
+- Autonomous planning
+- Shell/filesystem execution
+- Real sandboxing
+- Git merge automation
+- PostgreSQL
+- Social/media/design integrations
 
-The existing Video Editor remains the active application domain. Its frontend, upload endpoint, and FFmpeg media service are preserved.
+## Existing Video Editor
+
+The existing Video Editor remains the active application domain. Its frontend, upload endpoint, and FFmpeg media service are preserved and are not part of the Milestone 1 domain/runtime changes.
 
 ## Run locally
 
-Run these commands from the repository root, not from `backend/`:
-
-```bash
 npm install
 npm start
-```
 
-Then open `http://localhost:3000`.
+Then open http://localhost:3000.
 
-### 1. Health check
+## Foundation tests
 
-```bash
-curl -i http://localhost:3000/api/health
-```
-
-Expected response: HTTP 200 with JSON containing `"ok": true`.
-
-### 2. Upload test
-
-From the repository root, with a small test video available:
-
-```bash
-curl -i -X POST -F "video=@test.mp4" http://localhost:3000/api/upload
-```
-
-A successful response is HTTP 201 and includes a job ID plus WAV metadata:
-
-- WAV
-- 16,000 Hz
-- mono
-- PCM signed 16-bit
-
-The generated files are kept under `storage/uploads/` and `storage/audio/` locally. They are ignored by Git.
-
-### 3. Foundation tests
-
-```bash
 npm test
-```
 
-The tests cover tool registration, permission evaluation, agent contracts, runtime lifecycle, approval-required execution, and invalid tool invocation.
+The test suite covers Milestone 0 regressions plus task transitions, runtime failures, permission denial, approval flow, audit redaction, execution context, ToolExecution, and replaceable in-memory stores.
 
-### 4. Browser end-to-end test
+## Existing video pipeline
 
-Open the app through `http://localhost:3000`, upload a small real video, and press **ابدأ AI Auto Edit**.
-
-The UI calls `/api/upload`, so this verifies the actual browser → backend → FFmpeg audio extraction path. The current UI stops after successful audio preparation; Whisper and silence detection are intentionally not connected yet.
-
-## CORS
-
-The frontend is served by the same Express server and calls `/api/upload` with a relative URL. Therefore CORS middleware is not required for the current architecture. If the frontend is later hosted on another origin or port, add an explicit CORS policy at that point.
-
-## Pipeline roadmap
-
-1. Upload video
-2. Extract audio
-3. Arabic Whisper transcription with timestamps
-4. FFmpeg `silencedetect`
-5. Merge speech + silence into an Edit Decision List (EDL)
-6. Apply cuts with FFmpeg
-7. Export final MP4
-8. Add Arabic captions, smart reframe, subject tracking, and background removal
-
-> The current release does **not** claim Whisper, silence removal, or AI background removal are implemented yet. Those are the next pipeline stages.
+The browser calls /api/upload, which stores the video and extracts WAV audio at 16 kHz mono using FFmpeg. Whisper, silence detection, and later AI video stages remain separate future work.
