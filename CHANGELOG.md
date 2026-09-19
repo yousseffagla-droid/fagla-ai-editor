@@ -23,3 +23,12 @@
 - Automatic Git merge.
 - Autonomous deployment.
 - Social, image, video, Photoshop, or multi-agent integrations.
+
+## Milestone 4 — Real Project Coding & Self-Correction V1
+
+- Added structured project inspection and bounded relevant-file discovery.
+- Added structured bounded test observations.
+- Added a deterministic real self-correction loop using the Mock LLM Provider.
+- Added correction limits, failure classification, progress tracking, and engineering audit events.
+- Added controlled workspace lifecycle metadata.
+- Preserved all permission, workspace, command, approval, and Git security boundaries.
