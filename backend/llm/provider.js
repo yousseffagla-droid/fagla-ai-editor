@@ -6,7 +6,7 @@ export class LLMProvider {
 }
 export class MockLLMProvider extends LLMProvider {
   
-  constructor(planOrDecisions){this.plan=planOrDecisions;this.decisions=Array.isArray(planOrDecisions)?[...planOrDecisions]:null;}
+  constructor(planOrDecisions){super();this.plan=planOrDecisions;this.decisions=Array.isArray(planOrDecisions)?[...planOrDecisions]:null;}
   async generateCodingDecision(){
     if(this.decisions){if(!this.decisions.length)throw new ModelError('MockLLMProvider has no remaining decisions');return{decision:structuredClone(this.decisions.shift()),usage:null,model:'mock',latencyMs:0};}
     if(!this.plan)throw new ModelError('MockLLMProvider requires a plan');
