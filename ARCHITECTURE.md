@@ -130,3 +130,21 @@ Before a successful final result, the runtime requires the latest test observati
 ### Workspace lifecycle
 
 Task workspaces now carry explicit lifecycle metadata. The runtime does not expose the production repository filesystem to the model and does not perform destructive cleanup.
+
+
+## Milestone 5 — Agent Orchestrator V1
+
+### Coordination flow
+
+USER REQUEST → ORCHESTRATOR → TASK UNDERSTANDING → DECOMPOSITION → CAPABILITY REGISTRY → EXISTING AGENT RUNTIME → TOOLS/PERMISSIONS/WORKSPACE → STRUCTURED RESULT → AGGREGATION → VALIDATION
+
+The Orchestrator is coordination-only. It does not replace AgentRuntime, ToolRegistry, PermissionPolicy, Workspace security, or the Coding Agent self-correction loop.
+
+### Capabilities
+
+- coding: adapter around the existing Coding Agent and AgentRuntime.
+- research: deterministic controlled adapter for proving routing and structured result passing; no unrestricted network access.
+
+### Bounded execution
+
+Milestone 5 uses sequential execution with explicit task and step limits and dependency-cycle validation. Dependent tasks cannot run before successful dependencies. Results are passed as structured envelopes rather than mutable agent state.
