@@ -96,6 +96,16 @@ export class AgentRuntime {
             throw error;
           }
         }
+        if(decision.type==='plan'){
+          currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);
+          await this.auditLogger.append({event:'coding.validation.completed',taskId:currentTask.id,executionId:execution.executionId});
+          const result=await agent.execute({request,task:currentTask,project,workspace,execution,memory});
+          if(result.status==='COMPLETED'){
+            currentTask=transitionTask(currentTask,TASK_STATUSES.COMPLETED);await this.persist(currentTask);
+            await this.auditLogger.append({event:'coding.completed',taskId:currentTask.id,executionId:execution.executionId});
+          }
+          return result;
+        }
       }
       await this.auditLogger.append({event:'llm.loop_limit_reached',taskId:currentTask.id,agentId:execution.agentId,iterations,toolCalls});
       throw new AgentExecutionError('Coding Agent reasoning loop limit reached');
