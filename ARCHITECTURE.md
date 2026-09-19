@@ -148,3 +148,10 @@ The Orchestrator is coordination-only. It does not replace AgentRuntime, ToolReg
 ### Bounded execution
 
 Milestone 5 uses sequential execution with explicit task and step limits and dependency-cycle validation. Dependent tasks cannot run before successful dependencies. Results are passed as structured envelopes rather than mutable agent state.
+
+
+## Milestone 6 — Research Agent V1
+
+Orchestrator → Research Capability → Research Agent → AgentRuntime → ToolRegistry → PermissionPolicy → `research.search`.
+
+The Research Agent has a single bounded state machine: PLANNING → SEARCHING → COLLECTING → ANALYZING → SYNTHESIZING → VALIDATING → COMPLETED. Search returns structured source records; duplicate normalized URLs are removed. Findings contain source evidence. The agent does not expose arbitrary HTTP, filesystem, shell, or deployment operations.
