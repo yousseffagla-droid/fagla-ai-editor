@@ -84,7 +84,7 @@ export class AgentRuntime {
             if(step.tool==='coding.run_tests')testResults.push(safe);
           }catch(error){
             await this.auditLogger.append({event:'llm.tool_call.rejected',taskId:currentTask.id,agentId:execution.agentId,tool:step.tool,error:error.name});
-            if(error.name==='ApprovalRequiredError'){ return createAgentResult({status:'WAITING_FOR_APPROVAL',output:{approvalRequired:true},observations:[...observations]}); }
+            if(error.name==='ApprovalRequiredError'){ return createAgentResult({status:'WAITING_FOR_APPROVAL',output:{approvalRequired:true,approvalId:error.approvalId??null},observations:[...observations]}); }
             if(step.tool==='coding.run_tests'&&error instanceof ValidationError){
               const fingerprint=step.tool+':'+JSON.stringify(step.input??{});
               const count=(failures.get(fingerprint)??0)+1;failures.set(fingerprint,count);
@@ -115,7 +115,7 @@ export class AgentRuntime {
       const approval=await this.approvalStore.create({taskId:currentTask.id,projectId:project.id,tool:tool.name,reason:decision.reason,executionId:execution.executionId});
       const waiting=transitionTask(currentTask,TASK_STATUSES.WAITING_APPROVAL);await this.persist(waiting);
       await this.auditLogger.append({event:coding?'coding.approval.requested':'approval.requested',taskId:waiting.id,approvalId:approval.id,tool:tool.name,executionId:execution.executionId});
-      throw new ApprovalRequiredError('Approval required for '+tool.name,{code:'APPROVAL_REQUIRED'});
+      const approvalError=new ApprovalRequiredError('Approval required for '+tool.name,{code:'APPROVAL_REQUIRED'}); approvalError.approvalId=approval.id; throw approvalError;
     }
     return this.toolExecutor.execute(execution,step);
   }
