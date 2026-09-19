@@ -47,3 +47,16 @@
 
 ### Not included
 - Social, Video, Photoshop, autonomous browser/web scraping, deployment, unrestricted tools/network/filesystem/shell, distributed agents, or autonomous background agents.
+
+
+## Unreleased — Milestone 6
+
+### Added
+- Research Agent V1 with bounded planning, controlled search, source validation/deduplication, evidence attribution, synthesis, validation, and structured research results.
+- Explicit `RESEARCH` permission and registered `research.search` tool.
+- Deterministic research planner and CI search fixtures.
+- Prompt-injection boundary tests and research security regression coverage.
+
+### Limitations
+- No unrestricted browser, arbitrary URL fetching, generic HTTP client, or production web access.
+- Normal CI uses deterministic fixtures; real external research-provider integration is not required.
