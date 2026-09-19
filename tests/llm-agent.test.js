@@ -113,8 +113,7 @@ test('audit records LLM interaction events without secret fields',async()=>{
   assert.ok(names.includes('llm.context.built'));assert.ok(names.includes('llm.response.received'));assert.equal(events.some(e=>JSON.stringify(e).includes('OPENAI_API_KEY')),false);
 });
 
-test('provider integration test skips unless explicitly enabled',async()=>{
-  if(process.env.RUN_LLM_INTEGRATION_TESTS!=='true'||!process.env.OPENAI_API_KEY){return;}
+test('provider integration test', {skip: process.env.RUN_LLM_INTEGRATION_TESTS!=='true'||!process.env.OPENAI_API_KEY}, async()=>{
   const p=new OpenAIProvider();const r=await p.generateCodingDecision({request:'Return a final empty-safe result',task:{id:'integration',status:'RUNNING',projectId:'p'},workspace:{projectId:'p',workspaceId:'w',taskId:'integration',mode:'ISOLATED'}});
   assert.ok(r.decision);
 });
