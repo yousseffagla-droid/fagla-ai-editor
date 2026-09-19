@@ -24,10 +24,10 @@ export class Orchestrator{
       for(const task of tasks){
         if(++steps>this.limits.maxSteps)throw new ValidationError('Orchestration step limit reached');
         for(const d of task.dependencies){const dep=tasks.find(x=>x.id===d);if(!dep||dep.status!=='completed')throw new ValidationError(`Dependency ${d} did not complete`);}
-        if(!task.assignedCapability){task.status='failed';task.errors.push({code:'UNSUPPORTED_TASK',message:'No supported capability'});continue;}
+        if(!task.assignedCapability){task.status='completed';task.output={status:'UNSUPPORTED',type:'unsupported',message:'No registered capability supports this task type.'};await this.audit('orchestration.task.completed',{orchestrationId,taskId:task.id,status:task.status});continue;}
         const capability=this.registry.get(task.assignedCapability);if(!capability)throw new ValidationError('Unknown capability');
         task.status='running';await this.audit('orchestration.task.routed',{orchestrationId,taskId:task.id,capability:capability.id});await this.audit('orchestration.task.started',{orchestrationId,taskId:task.id});
-        const dependencyResults=task.dependencies.map(id=>tasks.find(x=>x.id===id).output);
+        const dependencyResults=task.dependencies.map(id=>tasks.find(x=>x.id===id).output);task.input={context:structuredClone(dependencyResults)};
         try{
           const result=await capability.execute({...context,orchestrationId,dependencyResults,project,workspaceFactory,runtime,codingAgent,auditLogger:this.auditLogger},task);
           task.output={status:result.status,output:result.output,validation:result.validation};task.status=result.status==='COMPLETED'?'completed':result.status==='WAITING_FOR_APPROVAL'?'waiting':'failed';
