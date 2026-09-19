@@ -100,3 +100,12 @@ Completed runs report files planned for change, test observations, correction hi
 Task workspaces carry lifecycle metadata for CREATE → INITIALIZE → INSPECT → MODIFY → TEST → VALIDATE → COMPLETE → CLEANUP. Automatic destructive cleanup is intentionally not performed by the agent in V1.
 
 Dependency installation, deployment, arbitrary shell, unrestricted filesystem/network access, automatic Git commit/push/merge, and production access remain out of scope.
+
+
+## Milestone 5 — Agent Orchestrator V1
+
+The platform now includes a bounded orchestration layer above the existing Coding Agent. The Orchestrator understands requests, decomposes composite work, routes through a capability registry, executes sequential dependencies, passes structured results, aggregates outcomes, and validates the final result.
+
+Research is a deterministic controlled adapter only; it does not provide unrestricted web/network access.
+
+Security authority remains in the existing AgentRuntime, ToolRegistry, PermissionPolicy, Workspace boundary, and Approval system. The Orchestrator cannot grant permissions or directly execute tools.
