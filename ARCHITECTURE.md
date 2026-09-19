@@ -1,58 +1,87 @@
 # FAGLA AI Architecture
 
-## Milestone 2 — First Real Coding Agent
+## Milestone 3 — Real LLM Integration & Agent Intelligence V1
 
-Milestone 2 adds the first bounded Coding Agent on top of the Milestone 0/1 Core Platform. It is workspace-scoped, provider-neutral, approval-gated, and tested against an isolated mock project.
+Milestone 3 adds real model-driven reasoning without changing the authority model established in Milestones 0–2.
 
-### Coding Agent architecture
+### Execution flow
 
-USER REQUEST → TASK → STRUCTURED PLAN → TASK WORKSPACE → REGISTERED TOOL → PERMISSION POLICY → WORKSPACE BOUNDARY → TOOL EXECUTOR → TEST → VALIDATION → RESULT → APPROVAL BOUNDARY
+USER REQUEST
+→ CODING AGENT
+→ CONTEXT BUILDER
+→ LLM PROVIDER
+→ STRUCTURED DECISION
+→ TOOL REGISTRY
+→ PERMISSION POLICY
+→ WORKSPACE BOUNDARY
+→ TOOL EXECUTOR
+→ OBSERVATION
+→ CONTEXT UPDATE
+→ LLM
+→ TEST
+→ VALIDATION
+→ RESULT
 
-The Coding Agent is split across:
-- coding-agent.js: contract and state machine coordination.
-- coding-plan.js: structured plan schema and validation.
-- coding-planner.js: provider-neutral planning adapter.
-- llm/provider.js: provider interface plus deterministic mock provider.
-- coding-tools.js: registered file, project, test, and git-inspection tools.
-- command-executor.js: closed command allowlist with shell disabled.
+The model proposes intent. The runtime decides whether intent is valid and permitted.
 
-### Coding Agent state
+### Provider boundary
+
+`LLMProvider` is the only contract consumed by `CodingPlanner`. `OpenAIProvider` implements the contract using the Responses API. `MockLLMProvider` remains deterministic for tests.
+
+Provider credentials never enter AgentContext or ExecutionContext. Provider responses expose safe metadata such as model, latency, and usage when supplied.
+
+### Structured decision protocol
+
+A model decision is one of:
+
+- `plan`: validated with the existing CodingPlan contract, then its registered actions are executed.
+- `tool_call`: one registered tool request, validated before authorization.
+- `final`: a structured completion result after validation.
+
+No natural-language command parsing is used for execution.
+
+### Context builder
+
+`backend/llm/context-builder.js` builds bounded context from task/project/workspace state, the current Coding Agent state, the validated plan, and sanitized observations/tool/test results.
+
+Sensitive keys are recursively filtered. Sensitive configuration paths such as `.env`, credentials, and secrets are excluded from model context, and Coding Agent file tools reject them.
+
+### Loop controls
+
+| Control | Limit |
+|---|---:|
+| Context | 24,000 characters |
+| File content in context | 8,000 characters |
+| Reasoning/tool iterations | 12 |
+| Tool calls per task | 24 |
+| Repeated test-failure fingerprint | 2 |
+| Provider retries | 2 |
+
+A loop-limit audit event is emitted before controlled failure.
+
+### Tool and approval flow
+
+Every model tool request follows:
+
+MODEL INTENT
+→ schema/argument validation
+→ ToolRegistry lookup
+→ PermissionPolicy
+→ Workspace/tool boundary
+→ Approval policy
+→ ToolExecutor
+→ sanitized observation
+
+Git commit and push remain approval-gated. Git merge remains denied. There is no generic shell tool.
+
+### Coding Agent state machine
+
+The existing state machine is preserved:
 
 IDLE → PLANNING → EXECUTING → TESTING → VALIDATING → COMPLETED
 
-Approval pauses use WAITING_APPROVAL; failures use FAILED. Invalid transitions are rejected.
+WAITING_APPROVAL and FAILED remain controlled branches. Milestone 3 does not create a competing state machine.
 
-### Workspace isolation
+### Existing Video Editor
 
-Each task can create an independent workspace identity through createTaskWorkspace(projectId, taskId, root). File operations resolve paths relative to the workspace root and reject absolute paths and traversal outside that root. Writes require isolated mode. main and production are protected targets.
-
-Milestone 2 does not perform Git merge, push, deployment, or production writes automatically. Git status and diff are read-only inspection tools.
-
-### Tool permissions
-
-| Tool class | Permission | V1 behavior |
-|---|---|---|
-| File/project reads | READ | Allow |
-| File writes | WRITE | Allow only inside isolated workspace |
-| Test command | EXECUTE | Allow only exact npm test |
-| Git status/diff | GIT | Allow |
-| Git commit/push | GIT | Requires approval |
-| Git merge | GIT | Deny |
-
-The runtime performs registry lookup and permission evaluation before tool execution. The agent cannot bypass the policy by calling an unregistered tool.
-
-### LLM provider abstraction
-
-LLMProvider is a provider-neutral interface. MockLLMProvider supplies deterministic structured plans for tests. No API key or provider credential is stored in the repository. A future real provider adapter can be added without changing Coding Agent contracts.
-
-### Testing strategy
-
-The mock project under tests/fixtures/coding-project is copied to a temporary workspace for mutation. The real FAGLA repository and its Video Editor are never used as the Coding Agent sandbox.
-
-## Core Platform
-
-Milestone 0/1 contracts, task lifecycle, runtime, registry, permissions, approvals, persistence interfaces, workspace boundary, and audit logging remain the foundation. Milestone 2 consumes these boundaries rather than replacing them.
-
-## Existing Video Editor
-
-The existing frontend, upload endpoint, and FFmpeg media service remain outside the Coding Agent fixture and are not used as its workspace.
+The frontend, upload endpoint, and FFmpeg media service remain outside the Coding Agent sandbox and are not redesigned by this milestone.
