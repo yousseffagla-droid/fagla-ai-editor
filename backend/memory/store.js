@@ -1,6 +1,3 @@
 import { ValidationError } from '../errors/index.js';
-export class MemoryStore {
-  constructor() { this.layers = { user: new Map(), project: new Map(), task: new Map() }; }
-  set(layer, key, value) { if (!this.layers[layer]) throw new ValidationError(`Unknown memory layer: ${layer}`); this.layers[layer].set(key, value); }
-  get(layer, key) { if (!this.layers[layer]) throw new ValidationError(`Unknown memory layer: ${layer}`); return this.layers[layer].get(key); }
-}
+export class MemoryStore { set(_layer,_key,_value){throw new Error('MemoryStore.set() is not implemented');} get(_layer,_key){throw new Error('MemoryStore.get() is not implemented');} }
+export class InMemoryMemoryStore extends MemoryStore { constructor(){super();this.layers={user:new Map(),project:new Map(),task:new Map()};} set(layer,key,value){if(!this.layers[layer])throw new ValidationError(`Unknown memory layer: ${layer}`);this.layers[layer].set(key,value);} get(layer,key){if(!this.layers[layer])throw new ValidationError(`Unknown memory layer: ${layer}`);return this.layers[layer].get(key);} }
