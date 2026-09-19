@@ -78,3 +78,25 @@ The model cannot:
 - access production/main workspaces
 
 The existing Video Editor remains separate and is not used as an agent sandbox.
+
+## Milestone 4 — Real Project Coding & Self-Correction V1
+
+The Coding Agent now runs a bounded engineering loop over an isolated project workspace:
+
+USER REQUEST → PROJECT INSPECTION → PLAN → IMPLEMENT → TEST → FAILURE ANALYSIS → CORRECTION → TEST AGAIN → VALIDATION → RESULT
+
+Project inspection returns structured metadata, bounded relevant-file discovery is available through `coding.discover_files`, and `coding.run_tests` returns bounded structured results instead of converting test failures into generic tool errors.
+
+### Self-correction
+
+A failed test can be returned to the LLM as a structured observation. The agent may make a correction through the same Tool Registry → Permission Policy → Workspace → Tool Executor path and rerun the allowlisted test command. Correction attempts are bounded at 3, repeated identical failures stop the loop, and security/permission failures are not treated as fixable test failures.
+
+### Engineering result
+
+Completed runs report files planned for change, test observations, correction history, validation/diff information, progress records, and an audit summary. Failed validation is reported separately from ordinary runtime/security failure.
+
+### Workspace lifecycle
+
+Task workspaces carry lifecycle metadata for CREATE → INITIALIZE → INSPECT → MODIFY → TEST → VALIDATE → COMPLETE → CLEANUP. Automatic destructive cleanup is intentionally not performed by the agent in V1.
+
+Dependency installation, deployment, arbitrary shell, unrestricted filesystem/network access, automatic Git commit/push/merge, and production access remain out of scope.
