@@ -29,7 +29,7 @@ export function registerCodingTools({ registry, auditLogger }) {
       return entries.map(entry => ({ name: entry.name, type: entry.isDirectory() ? 'directory' : 'file' }));
     }),
     tool('coding.read_file', 'Read a text file inside the isolated workspace.', 'READ', 'LOW', async (input, execution) => {
-      const workspace = execution.metadata.workspace; const target = resolveWorkspacePath(workspace, input.path);
+      const workspace = execution.metadata.workspace; assertModelSafePath(input.path); const target = resolveWorkspacePath(workspace, input.path);
       const content = await fs.readFile(target, 'utf8');
       await audit(auditLogger, 'coding.file.read', execution, { path: input.path });
       return { path: input.path, content };
