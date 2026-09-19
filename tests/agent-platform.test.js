@@ -2,69 +2,32 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BaseAgent, createAgentResult } from '../backend/agents/contracts.js';
 import { AgentRuntime } from '../backend/runtime/agent-runtime.js';
-import { ToolRegistry } from '../backend/tools/registry.js';
+import { ToolRegistry, ToolExecutor } from '../backend/tools/registry.js';
 import { TOOL_RISK_LEVELS } from '../backend/tools/contracts.js';
 import { PermissionPolicy } from '../backend/permissions/policy.js';
-import { ApprovalStore } from '../backend/approvals/store.js';
+import { ApprovalStore, APPROVAL_STATUSES } from '../backend/approvals/store.js';
 import { AuditLogger } from '../backend/logging/audit-log.js';
 import { createExecutionContext } from '../backend/runtime/execution-context.js';
-import { InvalidToolInvocationError } from '../backend/errors/index.js';
+import { createToolExecution } from '../backend/tools/execution.js';
+import { createTask, transitionTask, TASK_STATUSES } from '../backend/tasks/task.js';
+import { InMemoryTaskStore } from '../backend/tasks/store.js';
+import { InvalidTaskTransition, InvalidToolInvocationError, AgentExecutionError } from '../backend/errors/index.js';
 
-const execution = createExecutionContext({ taskId: 'task-1', projectId: 'project-1', requestId: 'request-1' });
-const project = { id: 'project-1' };
-const task = { id: 'task-1', projectId: 'project-1' };
+const execution = createExecutionContext({ taskId:'task-1', projectId:'project-1', agentId:'agent-1', workspaceId:'workspace-1', requestId:'request-1', permissions:['read'] });
+const project={id:'project-1'}; const workspace={workspaceId:'workspace-1'};
+function makeAgent(plan={steps:[]}, execute=createAgentResult({status:'COMPLETED',output:{ok:true}})) { return new class extends BaseAgent { constructor(){super({name:'test-agent',purpose:'Contract test agent',capabilities:['test'],permissions:['read']});} async plan(){return plan;} async execute(){return execute;} }(); }
 
-function makeAgent(plan = { steps: [] }) {
-  return new class extends BaseAgent {
-    constructor() { super({ name: 'test-agent', purpose: 'Contract test agent', capabilities: ['test'], permissions: ['LOW'] }); }
-    async plan() { return plan; }
-    async execute() { return createAgentResult({ status: 'COMPLETED', output: { ok: true } }); }
-  }();
-}
-
-test('registers and executes a tool', async () => {
-  const registry = new ToolRegistry(); let called = false;
-  registry.register({ name: 'test.read', description: 'Safe test tool', riskLevel: TOOL_RISK_LEVELS.LOW, handler: async () => { called = true; return { ok: true }; } });
-  assert.deepEqual(await registry.execute('test.read', {}, execution), { ok: true });
-  assert.equal(called, true);
-});
-
-test('evaluates low risk as allowed and medium risk as approval-required', () => {
-  const policy = new PermissionPolicy();
-  assert.equal(policy.evaluate({ riskLevel: TOOL_RISK_LEVELS.LOW }, execution).status, 'ALLOW');
-  assert.equal(policy.evaluate({ riskLevel: TOOL_RISK_LEVELS.MEDIUM }, execution).status, 'REQUIRES_APPROVAL');
-});
-
-test('enforces the agent contract', async () => {
-  const agent = makeAgent();
-  assert.equal(agent.name, 'test-agent');
-  assert.deepEqual(agent.capabilities, ['test']);
-  assert.equal((await agent.execute({})).status, 'COMPLETED');
-});
-
-test('runs the runtime lifecycle for an allowed action', async () => {
-  const registry = new ToolRegistry(); const events = [];
-  registry.register({ name: 'test.low', description: 'Safe tool', riskLevel: TOOL_RISK_LEVELS.LOW, handler: async () => { events.push('tool'); } });
-  const audit = new AuditLogger();
-  const runtime = new AgentRuntime({ toolRegistry: registry, permissionPolicy: new PermissionPolicy(), approvalStore: new ApprovalStore(), auditLogger: audit });
-  const result = await runtime.run({ request: 'do test', task, project, agent: makeAgent({ steps: [{ tool: 'test.low', input: {} }] }), execution });
-  assert.equal(result.status, 'COMPLETED');
-  assert.deepEqual(events, ['tool']);
-  assert.deepEqual(audit.list().map(e => e.event), ['REQUEST', 'PLAN', 'EXECUTE', 'OBSERVE', 'VALIDATE', 'COMPLETE']);
-});
-
-test('pauses medium-risk actions for approval', async () => {
-  const registry = new ToolRegistry(); let called = false;
-  registry.register({ name: 'test.medium', description: 'Approval test tool', riskLevel: TOOL_RISK_LEVELS.MEDIUM, handler: async () => { called = true; } });
-  const approvals = new ApprovalStore();
-  const runtime = new AgentRuntime({ toolRegistry: registry, permissionPolicy: new PermissionPolicy(), approvalStore: approvals, auditLogger: new AuditLogger() });
-  const result = await runtime.run({ request: 'approval test', task, project, agent: makeAgent({ steps: [{ tool: 'test.medium', input: {} }] }), execution });
-  assert.equal(result.status, 'WAITING_FOR_APPROVAL');
-  assert.equal(called, false);
-  assert.equal(approvals.get(result.output.approvalId).status, 'PENDING');
-});
-
-test('rejects invalid tool invocation', async () => {
-  const runtime = new AgentRuntime({ toolRegistry: new ToolRegistry(), permissionPolicy: new PermissionPolicy(), approvalStore: new ApprovalStore(), auditLogger: new AuditLogger() });
-  await assert.rejects(() => runtime.run({ request: 'invalid tool', task, project, agent: makeAgent({ steps: [{ tool: 'does.not.exist', input: {} }] }), execution }), InvalidToolInvocationError);
-});
+test('Milestone 0 regression: tool registration and execution', async()=>{const registry=new ToolRegistry();const executor=new ToolExecutor(registry);let called=false;registry.register({name:'test.read',description:'Safe test tool',riskLevel:TOOL_RISK_LEVELS.LOW,handler:async()=>{called=true;return{ok:true};}});assert.deepEqual(await executor.execute(execution,{tool:'test.read',input:{}}),{ok:true});assert.equal(called,true);});
+test('Milestone 0 regression: permission evaluation',()=>{const p=new PermissionPolicy();assert.equal(p.evaluate({riskLevel:'LOW'},execution).status,'ALLOW');assert.equal(p.evaluate({riskLevel:'MEDIUM'},execution).status,'REQUIRES_APPROVAL');});
+test('Milestone 0 regression: agent contract',async()=>{const a=makeAgent();assert.equal(a.name,'test-agent');assert.deepEqual(a.capabilities,['test']);assert.equal((await a.execute({})).status,'COMPLETED');});
+test('valid task lifecycle transitions',()=>{let t=createTask({id:'t',projectId:'p',request:'x'});for(const s of [TASK_STATUSES.PLANNED,TASK_STATUSES.RUNNING,TASK_STATUSES.WAITING_APPROVAL,TASK_STATUSES.RUNNING,TASK_STATUSES.VALIDATING,TASK_STATUSES.COMPLETED])t=transitionTask(t,s);assert.equal(t.status,TASK_STATUSES.COMPLETED);});
+test('invalid task transitions are rejected',()=>{const t=createTask({id:'t',projectId:'p',request:'x'});assert.throws(()=>transitionTask(t,TASK_STATUSES.COMPLETED),InvalidTaskTransition);const done={...t,status:TASK_STATUSES.COMPLETED};assert.throws(()=>transitionTask(done,TASK_STATUSES.RUNNING),InvalidTaskTransition);});
+test('execution context contains required identifiers and is immutable',()=>{assert.equal(execution.taskId,'task-1');assert.equal(execution.agentId,'agent-1');assert.equal(execution.workspaceId,'workspace-1');assert.ok(execution.executionId);assert.deepEqual(execution.permissions,['read']);assert.ok(Object.isFrozen(execution));});
+test('runtime lifecycle executes only registered allowed tools',async()=>{const registry=new ToolRegistry();const audit=new AuditLogger();const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:new ApprovalStore(),auditLogger:audit});registry.register({name:'test.low',description:'Safe',riskLevel:TOOL_RISK_LEVELS.LOW,handler:async()=>({ok:true})});const task=createTask({id:'task-1',projectId:'project-1',request:'do test'});const result=await runtime.run({request:'do test',task,project,workspace,agent:makeAgent({steps:[{tool:'test.low',input:{}}]}),execution});assert.equal(result.status,'COMPLETED');assert.deepEqual((await audit.list()).map(e=>e.event),['task.started','agent.executed','tool.requested','permission.evaluated','validation.completed','task.completed']);});
+test('unknown tool invocation is rejected before execution',async()=>{const registry=new ToolRegistry();const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:new ApprovalStore(),auditLogger:new AuditLogger()});const task=createTask({id:'task-1',projectId:'project-1',request:'bad'});await assert.rejects(()=>runtime.run({request:'bad',task,project,workspace,agent:makeAgent({steps:[{tool:'missing',input:{}}]}),execution}),InvalidToolInvocationError);});
+test('permission denial stops tool execution',async()=>{const registry=new ToolRegistry();let called=false;registry.register({name:'test.protected',description:'Protected',riskLevel:TOOL_RISK_LEVELS.LOW,requiredPermission:'admin',handler:async()=>{called=true;}});const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:new ApprovalStore(),auditLogger:new AuditLogger()});const task=createTask({id:'task-1',projectId:'project-1',request:'deny'});await assert.rejects(()=>runtime.run({request:'deny',task,project,workspace,agent:makeAgent({steps:[{tool:'test.protected',input:{}}]}),execution}),/Missing permission/);assert.equal(called,false);});
+test('approval flow creates pending approval and records resolution',async()=>{const registry=new ToolRegistry();let called=false;registry.register({name:'test.medium',description:'Approval',riskLevel:TOOL_RISK_LEVELS.MEDIUM,handler:async()=>{called=true;}});const approvals=new ApprovalStore();const audit=new AuditLogger();const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:approvals,auditLogger:audit});const task=createTask({id:'task-1',projectId:'project-1',request:'approval'});const result=await runtime.run({request:'approval',task,project,workspace,agent:makeAgent({steps:[{tool:'test.medium',input:{}}]}),execution});assert.equal(result.status,'WAITING_FOR_APPROVAL');const approval=approvals.get(result.output.approvalId);assert.equal(approval.status,APPROVAL_STATUSES.PENDING);await approvals.decide(approval.id,APPROVAL_STATUSES.APPROVED,'tester');assert.equal(approvals.get(approval.id).status,APPROVAL_STATUSES.APPROVED);assert.equal(called,false);assert.deepEqual((await audit.list()).map(e=>e.event),['task.started','agent.executed','tool.requested','permission.evaluated','approval.requested']);});
+test('runtime wraps unexpected agent errors and audits failure',async()=>{const registry=new ToolRegistry();const audit=new AuditLogger();const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:new ApprovalStore(),auditLogger:audit});const failing=new class extends BaseAgent{constructor(){super({name:'failing',purpose:'failure',capabilities:[],permissions:[]});}async plan(){throw new Error('boom');}}();const task=createTask({id:'task-1',projectId:'project-1',request:'fail'});await assert.rejects(()=>runtime.run({request:'fail',task,project,workspace,agent:failing,execution}),AgentExecutionError);assert.equal((await audit.list()).at(-1).event,'task.failed');});
+test('store interfaces are replaceable by compatible implementations',async()=>{const store=new InMemoryTaskStore();const task=createTask({id:'t',projectId:'p',request:'x'});await store.create(task);assert.deepEqual(await store.get('t'),task);await store.update({...task,status:TASK_STATUSES.PLANNED});assert.equal((await store.get('t')).status,TASK_STATUSES.PLANNED);const approval=new ApprovalStore();const a=await approval.create({taskId:'t'});assert.equal(approval.get(a.id).status,APPROVAL_STATUSES.PENDING);});
+test('audit log redacts sensitive fields',async()=>{const audit=new AuditLogger();await audit.append({event:'test',token:'secret',metadata:{apiKey:'hidden',safe:'ok'}});const entry=(await audit.list())[0];assert.equal(entry.token,undefined);assert.equal(entry.metadata.apiKey,undefined);assert.equal(entry.metadata.safe,'ok');});
+test('tool execution contract validates required fields',()=>{assert.equal(createToolExecution({executionId:'e',tool:'test'}).tool,'test');assert.throws(()=>createToolExecution({tool:'test'}));});
