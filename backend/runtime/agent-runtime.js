@@ -1,6 +1,6 @@
 import { createAgentContext, createAgentResult } from '../agents/contracts.js';
 import { PERMISSION_DECISIONS } from '../permissions/policy.js';
-import { PermissionDeniedError, AgentExecutionError, InvalidToolInvocationError, ValidationError, FaglaError } from '../errors/index.js';
+import { PermissionDeniedError, AgentExecutionError, InvalidToolInvocationError, ValidationError, ApprovalRequiredError, FaglaError } from '../errors/index.js';
 import { TASK_STATUSES, transitionTask } from '../tasks/task.js';
 import { createLLMContext, sanitizeToolResult, LLM_CONTEXT_LIMITS } from '../llm/context-builder.js';
 import { validateCodingDecision } from '../llm/response-schema.js';
