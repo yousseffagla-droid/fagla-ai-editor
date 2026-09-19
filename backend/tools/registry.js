@@ -1,18 +1,17 @@
 import { validateToolDefinition } from './contracts.js';
-import { InvalidToolInvocationError } from '../errors/index.js';
+import { InvalidToolInvocationError, ToolExecutionError } from '../errors/index.js';
 export class ToolRegistry {
   constructor() { this.tools = new Map(); }
-  register(definition) {
-    validateToolDefinition(definition);
-    if (this.tools.has(definition.name)) throw new Error(`Tool already registered: ${definition.name}`);
-    this.tools.set(definition.name, Object.freeze({ ...definition })); return this.tools.get(definition.name);
-  }
+  register(definition) { validateToolDefinition(definition); if (this.tools.has(definition.name)) throw new InvalidToolInvocationError(`Tool already registered: ${definition.name}`); const tool = Object.freeze({ ...definition }); this.tools.set(tool.name, tool); return tool; }
   has(name) { return this.tools.has(name); }
   get(name) { const tool = this.tools.get(name); if (!tool) throw new InvalidToolInvocationError(`Unknown tool: ${name}`); return tool; }
   list() { return [...this.tools.values()]; }
-  async execute(name, input, executionContext) { return this.get(name).handler(input, executionContext); }
 }
 export class ToolExecutor {
   constructor(registry) { this.registry = registry; }
-  execute(name, input, context) { return this.registry.execute(name, input, context); }
+  async execute(execution, invocation) {
+    const tool = this.registry.get(invocation.tool);
+    try { return await tool.handler(invocation.input, execution); }
+    catch (error) { throw new ToolExecutionError(`Tool "${tool.name}" failed: ${error.message}`, { cause: error }); }
+  }
 }
