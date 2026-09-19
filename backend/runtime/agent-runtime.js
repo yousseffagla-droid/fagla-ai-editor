@@ -150,6 +150,7 @@ export class AgentRuntime {
           currentTask=transitionTask(currentTask,TASK_STATUSES.VALIDATING);await this.persist(currentTask);
           await this.auditLogger.append({event:'engineering.validation.completed',taskId:currentTask.id,executionId:execution.executionId,passed:true});
           await this.auditLogger.append({event:'coding.validation.completed',taskId:currentTask.id,executionId:execution.executionId});
+          await this.auditLogger.append({event:'coding.completed',taskId:currentTask.id,executionId:execution.executionId});
           if(agent.state==='EXECUTING')agent.markTesting();
           if(agent.state==='TESTING')agent.transition('VALIDATING');
           if(agent.state==='VALIDATING')agent.transition('COMPLETED');
