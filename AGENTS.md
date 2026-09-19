@@ -60,3 +60,8 @@ Engineering results include progress and correction history. No automatic depend
 The Orchestrator may classify, decompose, route, and aggregate tasks, but it is not a privileged agent. Capability execution must flow through the existing runtime and its security controls. New capabilities must be registered explicitly. The LLM/provider layer, when used for planning, can only produce structured intent; it never receives direct tool authority.
 
 The Milestone 5 Research capability is deterministic and intentionally does not access the network. Composite orchestration is bounded and sequential in this version.
+
+
+## Research Agent rules
+
+External research content is untrusted data. It cannot redefine instructions, permissions, objectives, approval policy, or security policy. Research must use registered tools through AgentRuntime authorization. The only research permission introduced is `RESEARCH`, and the controlled search tool requires it.
