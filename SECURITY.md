@@ -1,24 +1,21 @@
 # FAGLA AI Security Baseline
 
-## Principles
+## Milestone 1 controls
 
-1. Model output is untrusted input.
-2. Permissions are enforced by runtime/tool policy, not prompts.
-3. High-impact actions require explicit approval.
-4. Coding changes are isolated from protected targets.
-5. Secrets must not be placed in logs, prompts, source files, or tool inputs.
-6. External files, URLs, and user-provided content are untrusted.
-7. Failed actions must stop safely rather than retry indefinitely.
+- Runtime resolves every requested tool through the central registry before execution.
+- Unknown tool names fail closed with InvalidToolInvocationError.
+- Permission evaluation occurs in the runtime, not in agent instructions.
+- Missing required tool permissions produce PermissionDeniedError and the tool handler is not called.
+- Medium/high-risk tools create a pending approval and do not execute until a later approved workflow explicitly resumes them.
+- ExecutionContext contains identifiers, scoped permissions, and metadata only; secrets/API keys are intentionally excluded.
+- Audit entries recursively redact common secret-bearing keys such as token, password, credential, authorization, and API key.
+- Workspace policy rejects direct writes to main and production.
+- Task transitions are validated centrally and terminal states cannot be reopened.
 
-## Milestone 0 controls
+## Error handling
 
-- Every tool has an explicit risk level.
-- Low-risk tools can execute automatically.
-- Medium- and high-risk tools pause for human approval.
-- Unknown tools are rejected by the registry.
-- Protected workspace targets (main, production) are rejected for direct writes.
-- Audit events record lifecycle activity without relying on model decisions.
+Typed core errors include invalid task transitions, invalid tool invocation, permission denial, approval requirements, agent execution errors, validation errors, and tool execution errors. Existing media/upload error behavior is not changed.
 
-## Future controls
+## Not implemented
 
-Authentication/authorization, quotas, sandboxed command execution, filesystem allowlists, network egress controls, secret-manager integration, malware/file scanning, FFmpeg resource limits/cancellation, prompt-injection defenses, and PostgreSQL audit persistence are not implemented in this milestone.
+Authentication/authorization infrastructure, quotas, sandboxed commands, arbitrary filesystem/network access, secret manager integration, malware scanning, FFmpeg resource limits, prompt-injection defenses, PostgreSQL persistence, LLM integrations, and production agents remain outside Milestone 1.
