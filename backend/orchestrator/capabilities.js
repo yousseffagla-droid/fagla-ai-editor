@@ -8,7 +8,8 @@ export function createCodingCapability({runtime,codingAgent,project,workspaceFac
   return createCapability({id:'coding',description:'Existing Milestone 4 Coding Agent through AgentRuntime',supportedTaskTypes:['coding'],execute:async(ctx,task)=>{
     const workspace=await workspaceFactory({taskId:task.id,projectId:project.id});
     const execution=createExecutionContext({taskId:task.id,projectId:project.id,agentId:codingAgent.name,workspaceId:workspace.workspaceId,requestId:crypto.randomUUID(),permissions:[...codingAgent.permissions],metadata:{workspace}});
-    const enrichedRequest=task.input?.context?.length?task.userRequest+'\nStructured dependency results:\n'+JSON.stringify(task.input.context):task.userRequest;\n    return runtime.run({request:enrichedRequest,task:{id:task.id,projectId:project.id,request:enrichedRequest,status:'CREATED'},project,workspace,agent:codingAgent,execution});
+    const enrichedRequest=task.input?.context?.length?task.userRequest+'\nStructured dependency results:\n'+JSON.stringify(task.input.context):task.userRequest;
+    return runtime.run({request:enrichedRequest,task:{id:task.id,projectId:project.id,request:enrichedRequest,status:'CREATED'},project,workspace,agent:codingAgent,execution});
   }});
 }
 export function createResearchCapability(){
