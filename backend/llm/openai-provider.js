@@ -32,7 +32,7 @@ export class OpenAIProvider extends LLMProvider {
         if(!transient||attempt>=this.maxRetries)throw new ExternalServiceError('OpenAI provider error: '+message);
       }catch(error){
         if(error.name==='AbortError'){if(attempt>=this.maxRetries)throw new TimeoutError('OpenAI provider timed out');}
-        else if(error instanceof ValidationError||error instanceof ModelError)throw error;
+        else if(error instanceof ValidationError||error instanceof ModelError||error instanceof ExternalServiceError)throw error;
         else if(!(error instanceof ExternalServiceError)&&attempt>=this.maxRetries)throw new ExternalServiceError('OpenAI provider unavailable');
         else if(error instanceof ExternalServiceError&&attempt>=this.maxRetries)throw error;
       }
