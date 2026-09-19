@@ -1,37 +1,80 @@
 # Fagla AI Editor
 
-Arabic-first AI video editor MVP plus the first bounded Coding Agent platform.
+Arabic-first AI video editor MVP plus a bounded Coding Agent platform.
 
-## Current architecture
+## Milestone 3 — Real LLM Integration & Agent Intelligence V1
 
-- Frontend: HTML, CSS, JavaScript
-- Backend: Node.js + Express
-- Uploads: Multer
-- Media processing: FFmpeg via ffmpeg-static
-- Core Agent Platform: contracts, lifecycle, runtime, tools, permissions, approvals, workspace boundary, persistence interfaces, audit logging
-- Coding Agent V1: structured planning, isolated task workspaces, bounded file tools, allowlisted tests, git inspection, and approval boundaries
+The Coding Agent now supports a real LLM provider behind the existing `LLMProvider` abstraction. The model proposes structured plans/tool calls/final results; the platform runtime remains authoritative for registry lookup, permissions, workspace isolation, approvals, tool execution, tests, validation, and audit.
 
-## Coding Agent V1
+### Architecture
 
-The Coding Agent receives a request, obtains a structured plan, and executes only registered tools through the central runtime. File writes are workspace-scoped. Test execution is restricted to exact npm test. Git status and diff are read-only; commit and push require approval; merge is denied.
+USER REQUEST → CODING AGENT → CONTEXT BUILDER → LLM PROVIDER → STRUCTURED DECISION → REGISTRY → PERMISSION POLICY → WORKSPACE BOUNDARY → TOOL EXECUTOR → OBSERVATION → LLM → TEST → VALIDATION → RESULT
 
-LLMProvider is provider-neutral. V1 uses MockLLMProvider for deterministic tests and does not contain API credentials.
+The LLM never receives direct filesystem, process, Git, or shell access.
 
-## Mock project test
+### Providers
 
-tests/fixtures/coding-project is a small independent Node project. Tests copy it to a temporary directory, execute real file changes, run its real test command, validate the result, and inspect audit events.
+- `MockLLMProvider`: deterministic and used by normal tests.
+- `OpenAIProvider`: production adapter using the OpenAI Responses API through the provider abstraction.
+- Credentials are read only from `OPENAI_API_KEY`; model is configurable through `OPENAI_MODEL`.
+- No provider SDK is required by the Coding Agent.
+- The default model can be overridden with `OPENAI_MODEL`.
 
-The real FAGLA repository is never used as the Coding Agent sandbox.
+### Structured output
 
-## Existing Video Editor
+Every model decision is validated against a strict schema with one of:
 
-The existing Video Editor frontend, upload endpoint, and FFmpeg media service remain separate from the Coding Agent fixture and are not modified by Coding Agent execution.
+- `plan`
+- `tool_call`
+- `final`
 
-## Run locally
+Invalid output is rejected before any tool can run.
 
+### Bounded reasoning
+
+The agent uses fixed limits:
+
+- max context: 24,000 characters
+- max file content in context: 8,000 characters
+- max LLM/tool iterations: 12
+- max tool calls per task: 24
+- max repeated test-failure fingerprint: 2
+
+Provider retries are limited to two retries with bounded exponential backoff and are only used for transient provider/network failures.
+
+### Environment
+
+Copy `.env.example` to a local environment file and set credentials only locally:
+
+```
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-5.6-luna
+RUN_LLM_INTEGRATION_TESTS=false
+```
+
+The real key is never committed, logged, placed in ExecutionContext, or sent to the model as task data.
+
+### Testing
+
+```bash
 npm install
 npm test
+```
 
-## Security boundary
+Normal CI and the full test suite work without an API key. The optional real-provider test runs only when both `RUN_LLM_INTEGRATION_TESTS=true` and `OPENAI_API_KEY` are explicitly present.
 
-No unrestricted shell, arbitrary filesystem access, production access, Git push automation, automatic merge, social APIs, image/video automation, or multi-agent orchestration is included in V1.
+### Security boundary
+
+The model cannot:
+
+- invoke unregistered tools
+- bypass PermissionPolicy
+- escape the isolated workspace
+- use absolute paths or traversal
+- execute arbitrary shell commands
+- access sensitive configuration files through Coding Agent file tools
+- commit or push without approval
+- merge branches
+- access production/main workspaces
+
+The existing Video Editor remains separate and is not used as an agent sandbox.
