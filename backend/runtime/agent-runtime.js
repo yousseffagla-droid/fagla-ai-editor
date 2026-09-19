@@ -151,7 +151,7 @@ export class AgentRuntime {
   async finishFailedValidation(task,execution,agent,progress,corrections,testResults,reason){
     const result=createAgentResult({status:'FAILED_VALIDATION',output:{status:'FAILED_VALIDATION',taskId:task.id,projectId:execution.projectId,filesChanged:agent.lastPlan?.filesToChange??[],tests:testResults,corrections,validation:{passed:false},warnings:[reason],remainingIssues:[reason],progress},error:{name:'ValidationError',message:reason}});
     if(task.status!==TASK_STATUSES.FAILED){task=task.status===TASK_STATUSES.VALIDATING?task:transitionTask(task,TASK_STATUSES.FAILED);await this.persist(task);}
-    agent.state='FAILED';
+    if(typeof agent.transition==='function' && agent.state!=='FAILED') agent.transition('FAILED');
     await this.auditLogger.append({event:'engineering.loop.stopped',taskId:task.id,executionId:execution.executionId,reason});
     await this.auditLogger.append({event:'engineering.failed',taskId:task.id,executionId:execution.executionId,reason});
     return result;
