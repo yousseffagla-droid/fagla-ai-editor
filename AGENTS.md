@@ -43,3 +43,13 @@ Every task receives a logical task workspace identity. File access is constraine
 ## Future scope
 
 Autonomous multi-agent orchestration, unrestricted execution, external integrations, production deployment, GitHub push automation, and automatic merge are not implemented.
+
+## Milestone 4 — Real Project Coding
+
+The Coding Agent performs a bounded engineering loop: inspect → plan → implement → test → analyze failure → correct → retest → validate.
+
+Project inspection is structured and relevant-file discovery is bounded. Test results are structured and bounded. A correction is allowed only through existing registered coding tools and the same permission/workspace/approval pipeline.
+
+The agent stops after three correction attempts or repeated identical failures. Security violations are terminal for the current execution; the model is never asked to work around a security boundary.
+
+Engineering results include progress and correction history. No automatic dependency installation, deployment, commit, push, or merge is performed.
