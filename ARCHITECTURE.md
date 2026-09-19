@@ -1,47 +1,150 @@
 # FAGLA AI Architecture
 
-## Milestone 1 — Core Domain + Runtime Hardening
+## Milestone 3 — Real LLM Integration & Agent Intelligence V1
 
-Milestone 1 turns the Milestone 0 foundation into a stable core platform. It does not implement product agents or model integrations.
+Milestone 3 adds real model-driven reasoning without changing the authority model established in Milestones 0–2.
 
-### Core boundaries
+### Execution flow
 
-- Task owns task identity, state, and legal lifecycle transitions.
-- Agent / AgentContext / AgentResult define the agent contract and exchange boundary.
-- ToolDefinition / ToolRegistry / ToolExecutor / ToolExecution separate registration, lookup, and execution of tools.
-- ExecutionContext carries scoped execution identifiers, permissions, and non-secret metadata.
-- PermissionPolicy makes the runtime authorization decision; agents cannot override it.
-- Approval represents an explicit human gate for higher-risk actions.
-- AuditLogStore / AuditLogger provide the append/list persistence boundary and sanitize sensitive keys.
-- TaskStore / ApprovalStore / MemoryStore keep persistence behind replaceable boundaries. Current implementations are in-memory.
-- Project Workspace defines the project/workspace identity and protects main and production from direct writes.
+USER REQUEST
+→ CODING AGENT
+→ CONTEXT BUILDER
+→ LLM PROVIDER
+→ STRUCTURED DECISION
+→ TOOL REGISTRY
+→ PERMISSION POLICY
+→ WORKSPACE BOUNDARY
+→ TOOL EXECUTOR
+→ OBSERVATION
+→ CONTEXT UPDATE
+→ LLM
+→ TEST
+→ VALIDATION
+→ RESULT
 
-### Task lifecycle
+The model proposes intent. The runtime decides whether intent is valid and permitted.
 
-CREATED → PLANNED → RUNNING → WAITING_APPROVAL → RUNNING → VALIDATING → COMPLETED
+### Provider boundary
 
-Terminal failure states are FAILED and CANCELLED. Invalid transitions throw InvalidTaskTransition; terminal states cannot be reopened.
+`LLMProvider` is the only contract consumed by `CodingPlanner`. `OpenAIProvider` implements the contract using the Responses API. `MockLLMProvider` remains deterministic for tests.
 
-### Runtime flow
+Provider credentials never enter AgentContext or ExecutionContext. Provider responses expose safe metadata such as model, latency, and usage when supplied.
 
-TASK START → AGENT EXECUTION → TOOL REQUEST → PERMISSION EVALUATION → APPROVAL GATE when required → TOOL EXECUTION → VALIDATION → TASK COMPLETE
+### Structured decision protocol
 
-Unknown tools are rejected by the registry. Permission decisions are made by the runtime policy before execution. Approval pauses execution; approval resolution is recorded, while full workflow resumption remains a later orchestration concern.
+A model decision is one of:
 
-### Persistence boundary
+- `plan`: validated with the existing CodingPlan contract, then its registered actions are executed.
+- `tool_call`: one registered tool request, validated before authorization.
+- `final`: a structured completion result after validation.
 
-Milestone 1 intentionally remains in-memory. TaskStore, ApprovalStore, MemoryStore, and AuditLogStore define stable interfaces so a future PostgreSQL adapter can replace storage without changing the runtime contract.
+No natural-language command parsing is used for execution.
 
-### Security boundary
+### Context builder
 
-Secrets and credentials are not part of ExecutionContext by design. Audit logging removes common secret-bearing keys recursively. Runtime errors are typed and unexpected agent/tool failures are normalized without exposing credentials.
+`backend/llm/context-builder.js` builds bounded context from task/project/workspace state, the current Coding Agent state, the validated plan, and sanitized observations/tool/test results.
 
-### Core Platform vs Future Agents
+Sensitive keys are recursively filtered. Sensitive configuration paths such as `.env`, credentials, and secrets are excluded from model context, and Coding Agent file tools reject them.
 
-Core Platform: contracts, lifecycle/state machine, runtime, registry, permission policy, approval boundary, workspace boundary, persistence interfaces, audit logging, and tests.
+### Loop controls
 
-Future Agents: Coding Agent, Research Agent, QA Agent, orchestrator behavior, LLM provider integration, autonomous planning, shell/filesystem tools, sandboxing, and external integrations. None are implemented in Milestone 1.
+| Control | Limit |
+|---|---:|
+| Context | 24,000 characters |
+| File content in context | 8,000 characters |
+| Reasoning/tool iterations | 12 |
+| Tool calls per task | 24 |
+| Repeated test-failure fingerprint | 2 |
+| Provider retries | 2 |
+
+A loop-limit audit event is emitted before controlled failure.
+
+### Tool and approval flow
+
+Every model tool request follows:
+
+MODEL INTENT
+→ schema/argument validation
+→ ToolRegistry lookup
+→ PermissionPolicy
+→ Workspace/tool boundary
+→ Approval policy
+→ ToolExecutor
+→ sanitized observation
+
+Git commit and push remain approval-gated. Git merge remains denied. There is no generic shell tool.
+
+### Coding Agent state machine
+
+The existing state machine is preserved:
+
+IDLE → PLANNING → EXECUTING → TESTING → VALIDATING → COMPLETED
+
+WAITING_APPROVAL and FAILED remain controlled branches. Milestone 3 does not create a competing state machine.
 
 ### Existing Video Editor
 
-The existing frontend, upload endpoint, and FFmpeg media service remain outside the Core Platform changes. Milestone 1 does not modify the Video Editor domain.
+The frontend, upload endpoint, and FFmpeg media service remain outside the Coding Agent sandbox and are not redesigned by this milestone.
+
+## Milestone 4 — Real Project Coding & Self-Correction V1
+
+### Engineering execution loop
+
+USER REQUEST
+→ CODING AGENT
+→ PROJECT INSPECTION
+→ PLAN
+→ IMPLEMENT
+→ TEST
+→ FAILURE ANALYSIS
+→ CORRECTION
+→ TEST AGAIN
+→ VALIDATION
+→ RESULT
+
+The loop is implemented inside the existing `AgentRuntime`; no second runtime or parallel permission system is introduced.
+
+### Project understanding
+
+`coding.inspect_project` returns structured project type, package manager, scripts, source/test directories, entry points, configuration files, and dependency names. `coding.discover_files` performs bounded, scored discovery over common source/test roots and excludes sensitive/build/vendor paths.
+
+### Test observation
+
+`coding.run_tests` still executes only the exact allowlisted `npm test` command with `shell:false`, but now returns success, exit code, duration, bounded failure lines, stdout/stderr, and a summary. Test failure is an observation that can drive a correction cycle rather than an invitation to bypass a security boundary.
+
+### Self-correction controls
+
+- maximum correction attempts: 3
+- maximum LLM/tool iterations: inherited from Milestone 3
+- maximum tool calls: inherited from Milestone 3
+- repeated identical test-failure fingerprint: stops the loop
+- correction uses the existing Tool Registry, Permission Policy, Workspace Policy, Approval boundary, and Tool Executor
+- Git commit/push remain approval-gated; merge remains denied
+
+The existing Coding Agent state machine is preserved. `TESTING → EXECUTING` is the only correction-specific transition added so a failed test can return to a controlled implementation phase.
+
+### Validation
+
+Before a successful final result, the runtime requires the latest test observation to be successful when tests were run and obtains a final `coding.git_diff` observation through the existing Git inspection tool. No commit or push is performed.
+
+### Workspace lifecycle
+
+Task workspaces now carry explicit lifecycle metadata. The runtime does not expose the production repository filesystem to the model and does not perform destructive cleanup.
+
+
+## Milestone 5 — Agent Orchestrator V1
+
+### Coordination flow
+
+USER REQUEST → ORCHESTRATOR → TASK UNDERSTANDING → DECOMPOSITION → CAPABILITY REGISTRY → EXISTING AGENT RUNTIME → TOOLS/PERMISSIONS/WORKSPACE → STRUCTURED RESULT → AGGREGATION → VALIDATION
+
+The Orchestrator is coordination-only. It does not replace AgentRuntime, ToolRegistry, PermissionPolicy, Workspace security, or the Coding Agent self-correction loop.
+
+### Capabilities
+
+- coding: adapter around the existing Coding Agent and AgentRuntime.
+- research: deterministic controlled adapter for proving routing and structured result passing; no unrestricted network access.
+
+### Bounded execution
+
+Milestone 5 uses sequential execution with explicit task and step limits and dependency-cycle validation. Dependent tasks cannot run before successful dependencies. Results are passed as structured envelopes rather than mutable agent state.
