@@ -1,6 +1,8 @@
 import path from 'node:path';
 import { ValidationError, PermissionDeniedError } from '../errors/index.js';
 
+export const WORKSPACE_LIFECYCLE = Object.freeze({ CREATE:'CREATE', INITIALIZE:'INITIALIZE', INSPECT:'INSPECT', MODIFY:'MODIFY', TEST:'TEST', VALIDATE:'VALIDATE', COMPLETE:'COMPLETE', CLEANUP:'CLEANUP' });
+
 export const WORKSPACE_MODES = Object.freeze({ ISOLATED: 'ISOLATED', READ_ONLY: 'READ_ONLY' });
 
 export function createProjectWorkspace({ projectId, workspaceId = projectId, taskId = null, root, mode = WORKSPACE_MODES.ISOLATED }) {
@@ -11,7 +13,7 @@ export function createProjectWorkspace({ projectId, workspaceId = projectId, tas
     taskId,
     root: path.resolve(root),
     mode,
-    protectedTargets: Object.freeze(['main', 'production'])
+    protectedTargets: Object.freeze(['main', 'production']), lifecycle: WORKSPACE_LIFECYCLE.CREATE, metadata: Object.freeze({ projectId, taskId })
   });
 }
 
@@ -42,4 +44,9 @@ export function assertPathInWorkspace(workspace, targetPath) {
   const relative = path.relative(root, resolved);
   if (relative.startsWith('..') || path.isAbsolute(relative)) throw new PermissionDeniedError('Path is outside the project workspace');
   return resolved;
+}
+
+export function transitionWorkspaceLifecycle(workspace, lifecycle) {
+  if (!Object.values(WORKSPACE_LIFECYCLE).includes(lifecycle)) throw new ValidationError('Invalid workspace lifecycle');
+  return Object.freeze({ ...workspace, lifecycle });
 }
