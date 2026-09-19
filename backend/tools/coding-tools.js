@@ -4,7 +4,13 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { assertWorkspaceWriteAllowed, resolveWorkspacePath } from '../projects/workspace.js';
 import { runAllowedCommand } from '../runtime/command-executor.js';
-import { ValidationError } from '../errors/index.js';
+import { ValidationError, PermissionDeniedError } from '../errors/index.js';
+
+function assertModelSafePath(inputPath){
+  if(typeof inputPath!=='string') throw new ValidationError('Path is required');
+  const normalized=inputPath.replaceAll('\\\\','/');
+  if(normalized.split('/').some(part=>part.toLowerCase()==='.env'||/^\.env\./i.test(part)||/credentials?|secrets?/i.test(part))) throw new PermissionDeniedError('Sensitive configuration files are not available to the Coding Agent');
+}
 
 const execFileAsync = promisify(execFile);
 
