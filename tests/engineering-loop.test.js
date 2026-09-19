@@ -90,10 +90,12 @@ test('real engineering loop fixes a failing fixture and reruns tests',async()=>{
 test('maximum correction attempts produce controlled FAILED_VALIDATION',async()=>{
   const ctx=await setup();
   try{
-    const bad={type:'plan',goal:'Keep failing',assumptions:[],filesToInspect:[],filesToChange:[],actions:[{tool:'coding.run_tests',input:{command:'npm test',args:['test']}}],tests:['npm test'],risks:[],tool:null,arguments:null,result:null};
-    ctx.agent.planner=new CodingPlanner(new MockLLMProvider([bad,bad,bad,bad]));
+    const plan={type:'plan',goal:'Keep failing',assumptions:[],filesToInspect:[],filesToChange:[],actions:[{tool:'coding.run_tests',input:{command:'npm test',args:['test']}}],tests:['npm test'],risks:[],tool:null,arguments:null,result:null};
+    const update=(expected)=>({type:'tool_call',goal:'Keep failing',assumptions:[],filesToInspect:[],filesToChange:['tests/calculator.test.js'],actions:[],tests:['npm test'],risks:[],tool:'coding.update_file',arguments:{path:'tests/calculator.test.js',content:`import test from 'node:test';\\nimport assert from 'node:assert/strict';\\nimport { add } from '../src/calculator.js';\\ntest('add returns the sum',()=>{assert.equal(add(2,3),${expected});});\\n`},result:null});
+    const run={type:'tool_call',goal:'Keep failing',assumptions:[],filesToInspect:[],filesToChange:[],actions:[],tests:['npm test'],risks:[],tool:'coding.run_tests',arguments:{command:'npm test',args:['test']},result:null};
+    ctx.agent.planner=new CodingPlanner(new MockLLMProvider([plan,update(6),run,update(7),run,update(8),run]));
     const result=await ctx.runtime.run({request:'Keep failing',task:ctx.task,project:{id:'engineering-project'},workspace:ctx.workspace,agent:ctx.agent,execution:ctx.execution});
-    assert.equal(result.status,'FAILED_VALIDATION');
+    assert.equal(result.status,'FAILED_VALIDATION'); assert.equal(result.output.corrections.length,3);
   }finally{await fs.rm(ctx.root,{recursive:true,force:true});}
 });
 
