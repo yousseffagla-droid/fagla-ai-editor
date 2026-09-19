@@ -9,7 +9,7 @@ import { ToolRegistry, ToolExecutor } from '../backend/tools/registry.js';
 import { PermissionPolicy } from '../backend/permissions/policy.js';
 import { InMemoryApprovalStore } from '../backend/approvals/store.js';
 import { AgentRuntime } from '../backend/runtime/agent-runtime.js';
-import { createTaskWorkspace } from '../backend/projects/workspace.js';
+import { createTaskWorkspace, resolveWorkspacePath } from '../backend/projects/workspace.js';
 import { createExecutionContext } from '../backend/runtime/execution-context.js';
 import { CodingAgent } from '../backend/agents/coding-agent.js';
 import { CodingPlanner } from '../backend/agents/coding-planner.js';
@@ -19,6 +19,7 @@ import { createCapability } from '../backend/orchestrator/contracts.js';
 import { ValidationError, PermissionDeniedError } from '../backend/errors/index.js';
 
 const fixture=path.resolve('tests/fixtures/engineering-project');
+const passingFixture=path.resolve('tests/fixtures/coding-project');
 
 function decisions({commit=false}={}){
   const plan={type:'plan',goal:'Update project',assumptions:[],filesToInspect:['src/calculator.js'],filesToChange:[],actions:[{tool:'coding.read_file',input:{path:'src/calculator.js'}},{tool:'coding.run_tests',input:{command:'npm test',args:['test']}}],tests:['npm test'],risks:[],tool:null,arguments:null,result:null};
@@ -26,8 +27,8 @@ function decisions({commit=false}={}){
   if(!commit)return [plan,done];
   return [ {...plan,actions:[{tool:'coding.git_commit',input:{}}]}, done ];
 }
-async function setup({research=false,commit=false,permissions=null}={}){
-  const root=await fs.mkdtemp(path.join(os.tmpdir(),'fagla-orch-'));await fs.cp(fixture,root,{recursive:true});
+async function setup({research=false,commit=false,permissions=null,sourceFixture=passingFixture}={}){
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'fagla-orch-'));await fs.cp(sourceFixture,root,{recursive:true});
   const auditLogger=new AuditLogger(),registry=new ToolRegistry();registerCodingTools({registry,auditLogger});
   const approvals=new InMemoryApprovalStore({auditLogger});
   const runtime=new AgentRuntime({toolRegistry:registry,toolExecutor:new ToolExecutor(registry),permissionPolicy:new PermissionPolicy(),approvalStore:approvals,auditLogger});
@@ -56,7 +57,7 @@ test('approval requirement remains enforced by AgentRuntime',async()=>{const x=a
 test('malformed decomposition is rejected before execution',()=>{const d=new TaskDecomposer({maxTasks:1});assert.throws(()=>d.validate([{id:'a',dependencies:[]},{id:'b',dependencies:[]}]),/plan size/);});
 test('orchestration bounds stop excessive execution',async()=>{const audit=new AuditLogger(),r=new CapabilityRegistry();let count=0;r.register(createCapability({id:'coding',description:'loop',supportedTaskTypes:['coding'],execute:async()=>{count++;return {status:'COMPLETED',output:{ok:true}}}}));const o=new Orchestrator({capabilityRegistry:r,auditLogger:audit,limits:{maxTasks:8,maxSteps:0,maxDependencyDepth:8}});await assert.rejects(()=>o.run({userRequest:'update project',project:{id:'p'}}),/step limit/);assert.equal(count,0);});
 test('audit events are emitted and sanitized',async()=>{const x=await setup();try{await x.orchestrator.run({userRequest:'research competitors',project:{id:'p'},runtime:x.runtime,codingAgent:x.agent});const events=await x.auditLogger.list();const names=events.map(e=>e.event);for(const n of ['orchestration.created','orchestration.planned','orchestration.task.created','orchestration.task.routed','orchestration.task.started','orchestration.task.completed','orchestration.validation.completed','orchestration.completed'])assert.ok(names.includes(n),n);assert.equal(events.some(e=>JSON.stringify(e).includes('OPENAI_API_KEY')),false);}finally{await fs.rm(x.root,{recursive:true,force:true});}});
-test('workspace boundary remains authoritative for coding capability',async()=>{const x=await setup();try{const ws=createTaskWorkspace({projectId:'p',taskId:'manual',root:x.root});assert.throws(()=>path.resolve(ws.root,'../../outside'),()=>false);const result=await x.orchestrator.run({userRequest:'update the project',project:{id:'p',type:'node'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root:x.root}),runtime:x.runtime,codingAgent:x.agent});assert.equal(result.status,'completed');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
+test('workspace boundary remains authoritative for coding capability',async()=>{const x=await setup();try{const ws=createTaskWorkspace({projectId:'p',taskId:'manual',root:x.root});assert.throws(()=>resolveWorkspacePath(ws,'../../outside'),/outside/);const result=await x.orchestrator.run({userRequest:'update the project',project:{id:'p',type:'node'},workspaceFactory:async({taskId,projectId})=>createTaskWorkspace({projectId,taskId,root:x.root}),runtime:x.runtime,codingAgent:x.agent});assert.equal(result.status,'completed');}finally{await fs.rm(x.root,{recursive:true,force:true});}});
 
 test('unknown capability is rejected by the routing layer',()=>{const r=new CapabilityRegistry();const d=new TaskDecomposer();const task=d.decompose({request:'research competitors',intent:d.understand('research competitors'),rootTaskId:'root'})[0];assert.throws(()=>{task.assignedCapability='missing';if(!r.has(task.assignedCapability))throw new ValidationError('Unknown capability');},/Unknown capability/);});
 test('unknown task type fails validation safely',()=>{const d=new TaskDecomposer();assert.throws(()=>d.decompose({request:'x',intent:{type:'not-supported'},rootTaskId:'r'}),/Invalid orchestration task|plan/);});
