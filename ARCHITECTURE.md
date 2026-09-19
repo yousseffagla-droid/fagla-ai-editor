@@ -1,49 +1,47 @@
 # FAGLA AI Architecture
 
-## Milestone 0 — Foundation
+## Milestone 1 — Core Domain + Runtime Hardening
 
-This milestone establishes boundaries for an agent platform without replacing the existing video editor.
+Milestone 1 turns the Milestone 0 foundation into a stable core platform. It does not implement product agents or model integrations.
 
-### Runtime lifecycle
+### Core boundaries
 
-REQUEST → PLAN → EXECUTE → OBSERVE → VALIDATE → APPROVAL → COMPLETE
+- Task owns task identity, state, and legal lifecycle transitions.
+- Agent / AgentContext / AgentResult define the agent contract and exchange boundary.
+- ToolDefinition / ToolRegistry / ToolExecutor / ToolExecution separate registration, lookup, and execution of tools.
+- ExecutionContext carries scoped execution identifiers, permissions, and non-secret metadata.
+- PermissionPolicy makes the runtime authorization decision; agents cannot override it.
+- Approval represents an explicit human gate for higher-risk actions.
+- AuditLogStore / AuditLogger provide the append/list persistence boundary and sanitize sensitive keys.
+- TaskStore / ApprovalStore / MemoryStore keep persistence behind replaceable boundaries. Current implementations are in-memory.
+- Project Workspace defines the project/workspace identity and protects main and production from direct writes.
 
-The runtime has a simple plan boundary. It does not implement autonomous planning, model routing, long-running workflows, or automatic merging.
+### Task lifecycle
 
-### Boundaries
+CREATED → PLANNED → RUNNING → WAITING_APPROVAL → RUNNING → VALIDATING → COMPLETED
 
-- agents/ — agent contracts and future implementations.
-- runtime/ — execution context and controlled lifecycle.
-- tools/ — tool definitions, registry, and execution boundary.
-- permissions/ — policy decisions independent from model instructions.
-- projects/ — project/workspace isolation rules.
-- tasks/ — task state model.
-- approvals/ — explicit human approval state.
-- memory/ — separated user/project/task memory boundary.
-- logging/ — structured audit events.
-- errors/ — typed error taxonomy.
-- services/ — composition and existing domain services.
+Terminal failure states are FAILED and CANCELLED. Invalid transitions throw InvalidTaskTransition; terminal states cannot be reopened.
 
-### Coding-agent safety boundary
+### Runtime flow
 
-Future coding execution must follow:
+TASK START → AGENT EXECUTION → TOOL REQUEST → PERMISSION EVALUATION → APPROVAL GATE when required → TOOL EXECUTION → VALIDATION → TASK COMPLETE
 
-User Request → Project Workspace → Agent Changes → Tests → QA → Approval → Merge
+Unknown tools are rejected by the registry. Permission decisions are made by the runtime policy before execution. Approval pauses execution; approval resolution is recorded, while full workflow resumption remains a later orchestration concern.
 
-The foundation protects main and production as merge targets. A future Coding Agent must operate in an isolated workspace/branch and may not directly write protected targets.
+### Persistence boundary
 
-### Persistence
+Milestone 1 intentionally remains in-memory. TaskStore, ApprovalStore, MemoryStore, and AuditLogStore define stable interfaces so a future PostgreSQL adapter can replace storage without changing the runtime contract.
 
-Milestone 0 uses in-memory stores only. No database is required to establish these contracts. A PostgreSQL-backed implementation can replace these stores later without changing agent/runtime contracts.
+### Security boundary
 
-### TypeScript migration
+Secrets and credentials are not part of ExecutionContext by design. Audit logging removes common secret-bearing keys recursively. Runtime errors are typed and unexpected agent/tool failures are normalized without exposing credentials.
 
-The foundation is JavaScript-first and contract-oriented. Modules use explicit objects, classes, validation, and stable boundaries so individual modules can migrate to TypeScript later without converting the repository in one step.
+### Core Platform vs Future Agents
+
+Core Platform: contracts, lifecycle/state machine, runtime, registry, permission policy, approval boundary, workspace boundary, persistence interfaces, audit logging, and tests.
+
+Future Agents: Coding Agent, Research Agent, QA Agent, orchestrator behavior, LLM provider integration, autonomous planning, shell/filesystem tools, sandboxing, and external integrations. None are implemented in Milestone 1.
 
 ### Existing Video Editor
 
-The current frontend, upload route, FFmpeg service, and browser editing flow remain the existing video domain. They are not rewritten by Milestone 0.
-
-### Not implemented
-
-Autonomous planning, production Coding/Research/QA agents, LLM provider abstraction, PostgreSQL persistence, authentication/organizations, real workspace provisioning, branch/merge automation, production tool executors, social/design/video AI agents.
+The existing frontend, upload endpoint, and FFmpeg media service remain outside the Core Platform changes. Milestone 1 does not modify the Video Editor domain.
