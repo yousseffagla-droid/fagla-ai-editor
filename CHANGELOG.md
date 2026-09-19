@@ -32,3 +32,18 @@
 - Added correction limits, failure classification, progress tracking, and engineering audit events.
 - Added controlled workspace lifecycle metadata.
 - Preserved all permission, workspace, command, approval, and Git security boundaries.
+
+
+## Unreleased — Milestone 5
+
+### Added
+- Bounded Agent Orchestrator V1 with task understanding, decomposition, routing, dependency handling, structured result passing, aggregation, and final validation.
+- Explicit capability registry and Coding Agent adapter.
+- Deterministic Research capability for controlled orchestration tests.
+- Orchestration state machine, audit events, bounds, and security regression coverage.
+
+### Preserved
+- Milestones 0–4 runtime, Coding Agent, self-correction, permission, approval, workspace, and Video Editor behavior.
+
+### Not included
+- Social, Video, Photoshop, autonomous browser/web scraping, deployment, unrestricted tools/network/filesystem/shell, distributed agents, or autonomous background agents.
