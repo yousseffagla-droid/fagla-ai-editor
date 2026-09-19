@@ -4,7 +4,8 @@ export class LLMProvider {
   async generateCodingDecision(){throw new ModelError('LLMProvider.generateCodingDecision() is not implemented');}
   async generateCodingPlan(context){const response=await this.generateCodingDecision(context);return response?.decision??response;}
 }
-export class MockLLMProvider {
+export class MockLLMProvider extends LLMProvider {
+  
   constructor(planOrDecisions){this.plan=planOrDecisions;this.decisions=Array.isArray(planOrDecisions)?[...planOrDecisions]:null;}
   async generateCodingDecision(){
     if(this.decisions){if(!this.decisions.length)throw new ModelError('MockLLMProvider has no remaining decisions');return{decision:structuredClone(this.decisions.shift()),usage:null,model:'mock',latencyMs:0};}
