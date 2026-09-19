@@ -1,17 +1,45 @@
 # Agent Contracts
 
-## Core Platform contract
+## Core Platform
 
-An agent declares identity, purpose, capabilities, and declared permissions. The runtime supplies an AgentContext containing request, task, project, workspace, execution context, and scoped memory.
+Agents declare identity, purpose, capabilities, and permissions. The runtime owns tool lookup, authorization, approval, task transitions, and audit.
 
-Agents return an AgentResult with COMPLETED, WAITING_FOR_APPROVAL, or FAILED.
+## Coding Agent V1
 
-Agents do not authorize their own tool use. The runtime resolves tools, evaluates PermissionPolicy, creates approvals when required, and controls execution.
+backend/agents/coding-agent.js implements the first real product agent.
 
-## Task lifecycle
+Responsibilities:
+- receive a structured AgentContext
+- request a structured plan through a provider-neutral planner
+- request only registered coding tools
+- operate only through runtime-enforced permissions and workspace boundaries
+- run the allowlisted test command
+- return a structured AgentResult
+- expose explicit Coding Agent state transitions
 
-Agents participate in the core task lifecycle but do not mutate task status directly. task.js owns legal transitions.
+The Coding Agent does not directly execute shell commands, access arbitrary filesystem paths, merge Git branches, push to remote repositories, or deploy production.
 
-## Future Agents
+## Planning contract
 
-Coding Agent, Research Agent, QA Agent, and any main orchestrator are future features. They are not implemented in Milestone 1. Future Coding Agent execution must use an isolated workspace and must never directly modify main or production.
+A Coding Plan contains:
+- goal
+- assumptions
+- filesToInspect
+- filesToChange
+- actions
+- tests
+- risks
+
+Plans are validated before execution.
+
+## Provider boundary
+
+LLMProvider is an abstraction. MockLLMProvider is used by V1 tests. No provider secret is stored in source control.
+
+## Workspace rule
+
+Every task receives a logical task workspace identity. File access is constrained to its resolved root. The real FAGLA repository is not a Coding Agent test fixture.
+
+## Future scope
+
+Autonomous multi-agent orchestration, unrestricted execution, external integrations, production deployment, GitHub push automation, and automatic merge are not implemented.

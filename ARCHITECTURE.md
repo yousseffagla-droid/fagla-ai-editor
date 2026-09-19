@@ -1,47 +1,58 @@
 # FAGLA AI Architecture
 
-## Milestone 1 — Core Domain + Runtime Hardening
+## Milestone 2 — First Real Coding Agent
 
-Milestone 1 turns the Milestone 0 foundation into a stable core platform. It does not implement product agents or model integrations.
+Milestone 2 adds the first bounded Coding Agent on top of the Milestone 0/1 Core Platform. It is workspace-scoped, provider-neutral, approval-gated, and tested against an isolated mock project.
 
-### Core boundaries
+### Coding Agent architecture
 
-- Task owns task identity, state, and legal lifecycle transitions.
-- Agent / AgentContext / AgentResult define the agent contract and exchange boundary.
-- ToolDefinition / ToolRegistry / ToolExecutor / ToolExecution separate registration, lookup, and execution of tools.
-- ExecutionContext carries scoped execution identifiers, permissions, and non-secret metadata.
-- PermissionPolicy makes the runtime authorization decision; agents cannot override it.
-- Approval represents an explicit human gate for higher-risk actions.
-- AuditLogStore / AuditLogger provide the append/list persistence boundary and sanitize sensitive keys.
-- TaskStore / ApprovalStore / MemoryStore keep persistence behind replaceable boundaries. Current implementations are in-memory.
-- Project Workspace defines the project/workspace identity and protects main and production from direct writes.
+USER REQUEST → TASK → STRUCTURED PLAN → TASK WORKSPACE → REGISTERED TOOL → PERMISSION POLICY → WORKSPACE BOUNDARY → TOOL EXECUTOR → TEST → VALIDATION → RESULT → APPROVAL BOUNDARY
 
-### Task lifecycle
+The Coding Agent is split across:
+- coding-agent.js: contract and state machine coordination.
+- coding-plan.js: structured plan schema and validation.
+- coding-planner.js: provider-neutral planning adapter.
+- llm/provider.js: provider interface plus deterministic mock provider.
+- coding-tools.js: registered file, project, test, and git-inspection tools.
+- command-executor.js: closed command allowlist with shell disabled.
 
-CREATED → PLANNED → RUNNING → WAITING_APPROVAL → RUNNING → VALIDATING → COMPLETED
+### Coding Agent state
 
-Terminal failure states are FAILED and CANCELLED. Invalid transitions throw InvalidTaskTransition; terminal states cannot be reopened.
+IDLE → PLANNING → EXECUTING → TESTING → VALIDATING → COMPLETED
 
-### Runtime flow
+Approval pauses use WAITING_APPROVAL; failures use FAILED. Invalid transitions are rejected.
 
-TASK START → AGENT EXECUTION → TOOL REQUEST → PERMISSION EVALUATION → APPROVAL GATE when required → TOOL EXECUTION → VALIDATION → TASK COMPLETE
+### Workspace isolation
 
-Unknown tools are rejected by the registry. Permission decisions are made by the runtime policy before execution. Approval pauses execution; approval resolution is recorded, while full workflow resumption remains a later orchestration concern.
+Each task can create an independent workspace identity through createTaskWorkspace(projectId, taskId, root). File operations resolve paths relative to the workspace root and reject absolute paths and traversal outside that root. Writes require isolated mode. main and production are protected targets.
 
-### Persistence boundary
+Milestone 2 does not perform Git merge, push, deployment, or production writes automatically. Git status and diff are read-only inspection tools.
 
-Milestone 1 intentionally remains in-memory. TaskStore, ApprovalStore, MemoryStore, and AuditLogStore define stable interfaces so a future PostgreSQL adapter can replace storage without changing the runtime contract.
+### Tool permissions
 
-### Security boundary
+| Tool class | Permission | V1 behavior |
+|---|---|---|
+| File/project reads | READ | Allow |
+| File writes | WRITE | Allow only inside isolated workspace |
+| Test command | EXECUTE | Allow only exact npm test |
+| Git status/diff | GIT | Allow |
+| Git commit/push | GIT | Requires approval |
+| Git merge | GIT | Deny |
 
-Secrets and credentials are not part of ExecutionContext by design. Audit logging removes common secret-bearing keys recursively. Runtime errors are typed and unexpected agent/tool failures are normalized without exposing credentials.
+The runtime performs registry lookup and permission evaluation before tool execution. The agent cannot bypass the policy by calling an unregistered tool.
 
-### Core Platform vs Future Agents
+### LLM provider abstraction
 
-Core Platform: contracts, lifecycle/state machine, runtime, registry, permission policy, approval boundary, workspace boundary, persistence interfaces, audit logging, and tests.
+LLMProvider is a provider-neutral interface. MockLLMProvider supplies deterministic structured plans for tests. No API key or provider credential is stored in the repository. A future real provider adapter can be added without changing Coding Agent contracts.
 
-Future Agents: Coding Agent, Research Agent, QA Agent, orchestrator behavior, LLM provider integration, autonomous planning, shell/filesystem tools, sandboxing, and external integrations. None are implemented in Milestone 1.
+### Testing strategy
 
-### Existing Video Editor
+The mock project under tests/fixtures/coding-project is copied to a temporary workspace for mutation. The real FAGLA repository and its Video Editor are never used as the Coding Agent sandbox.
 
-The existing frontend, upload endpoint, and FFmpeg media service remain outside the Core Platform changes. Milestone 1 does not modify the Video Editor domain.
+## Core Platform
+
+Milestone 0/1 contracts, task lifecycle, runtime, registry, permissions, approvals, persistence interfaces, workspace boundary, and audit logging remain the foundation. Milestone 2 consumes these boundaries rather than replacing them.
+
+## Existing Video Editor
+
+The existing frontend, upload endpoint, and FFmpeg media service remain outside the Coding Agent fixture and are not used as its workspace.

@@ -1,26 +1,26 @@
 # Changelog
 
-## Unreleased — Milestone 1
+## Unreleased — Milestone 2
 
 ### Added
-- Explicit Core Domain contracts and boundaries.
-- Task state machine with valid and invalid transition enforcement.
-- Hardened ExecutionContext with task/project/agent/workspace/execution identifiers and scoped permissions.
-- ToolExecution contract plus separate ToolRegistry and ToolExecutor boundaries.
-- Runtime permission denial and approval gates.
-- Typed core error hierarchy.
-- Replaceable TaskStore, ApprovalStore, MemoryStore, and AuditLogStore boundaries with in-memory implementations.
-- Structured audit events and sensitive-field redaction.
-- Core Platform regression and lifecycle tests.
+- First real Coding Agent contract and explicit state machine.
+- Structured Coding Plan validation.
+- Provider-neutral LLM interface with deterministic MockLLMProvider.
+- Task-specific logical workspace identities and path traversal protection.
+- Registered coding file, project inspection, test, and git inspection tools.
+- Closed command allowlist for npm test.
+- Permission categories READ, WRITE, EXECUTE, and GIT.
+- Approval-gated git commit and push plus permanently denied git merge.
+- Coding-specific audit events.
+- Isolated mock project integration test with real file mutation and real test execution.
 
 ### Preserved
-- Existing Arabic-first Video Editor frontend.
-- Existing upload and FFmpeg audio extraction pipeline.
+- Milestone 0/1 Core Platform behavior.
+- Existing Video Editor domain and media pipeline.
 
 ### Not included
-- LLM integration or provider APIs.
-- Coding, Research, or QA agents.
-- Autonomous planning.
-- Shell/filesystem tools or real sandboxing.
-- Git merge automation.
-- PostgreSQL or external integrations.
+- Real LLM provider credentials or network model calls.
+- Arbitrary shell or filesystem access.
+- Production deployment.
+- GitHub push automation or automatic merge.
+- Social, image, video, Photoshop, or multi-agent integrations.
