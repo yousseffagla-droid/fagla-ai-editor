@@ -22,7 +22,7 @@ const fixture=path.resolve('tests/fixtures/engineering-project');
 const passingFixture=path.resolve('tests/fixtures/coding-project');
 
 function decisions({commit=false}={}){
-  const plan={type:'plan',goal:'Update project',assumptions:[],filesToInspect:['src/calculator.js'],filesToChange:[],actions:[{tool:'coding.read_file',input:{path:'src/calculator.js'}},{tool:'coding.run_tests',input:{command:'npm test',args:['test']}}],tests:['npm test'],risks:[],tool:null,arguments:null,result:null};
+  const plan={type:'plan',goal:'Update project',assumptions:[],filesToInspect:['src/math.js'],filesToChange:[],actions:[{tool:'coding.read_file',input:{path:'src/math.js'}},{tool:'coding.run_tests',input:{command:'npm test',args:['test']}}],tests:['npm test'],risks:[],tool:null,arguments:null,result:null};
   const done={type:'final',goal:'Update project',assumptions:[],filesToInspect:[],filesToChange:[],actions:[],tests:['npm test'],risks:[],tool:null,arguments:null,result:{summary:'done'}};
   if(!commit)return [plan,done];
   return [ {...plan,actions:[{tool:'coding.git_commit',input:{}}]}, done ];
