@@ -92,7 +92,10 @@ test('git merge remains denied',async()=>{
 
 test('test failure observation can return control to the model once',async()=>{
   const x=await runtimeFor([
-    decision('tool_call',{tool:'coding.run_tests',arguments:{command:'not allowed',args:[]}}),
+    decision('tool_call',{tool:'coding.update_file',arguments:{path:'src/math.js',content:'export function add(a,b){return a-b;}\\n'}}),
+    decision('tool_call',{tool:'coding.run_tests',arguments:{command:'npm test',args:['test']}}),
+    decision('tool_call',{tool:'coding.update_file',arguments:{path:'src/math.js',content:'export function add(a,b){return a+b;}\\n'}}),
+    decision('tool_call',{tool:'coding.run_tests',arguments:{command:'npm test',args:['test']}}),
     decision('final',{result:{fixed:true}})
   ]);
   const result=await x.runtime.run({request:x.task.request,task:x.task,project:{id:'p'},workspace:x.workspace,agent:x.agent,execution:x.execution});
@@ -102,7 +105,8 @@ test('test failure observation can return control to the model once',async()=>{
 test('loop limit stops a non-progressing model',async()=>{
   const decisions=Array.from({length:20},()=>decision('tool_call',{tool:'coding.read_file',arguments:{path:'src/math.js'}}));
   const x=await runtimeFor(decisions,['READ']);
-  await assert.rejects(()=>x.runtime.run({request:x.task.request,task:x.task,project:{id:'p'},workspace:x.workspace,agent:x.agent,execution:x.execution}),AgentExecutionError);
+  const result=await x.runtime.run({request:x.task.request,task:x.task,project:{id:'p'},workspace:x.workspace,agent:x.agent,execution:x.execution});
+  assert.equal(result.status,'FAILED_VALIDATION');
   const events=await x.auditLogger.list();assert.ok(events.some(e=>e.event==='llm.loop_limit_reached'));
 });
 
