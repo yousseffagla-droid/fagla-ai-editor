@@ -53,3 +53,10 @@ Project inspection is structured and relevant-file discovery is bounded. Test re
 The agent stops after three correction attempts or repeated identical failures. Security violations are terminal for the current execution; the model is never asked to work around a security boundary.
 
 Engineering results include progress and correction history. No automatic dependency installation, deployment, commit, push, or merge is performed.
+
+
+## Milestone 5 — Orchestrator rules
+
+The Orchestrator may classify, decompose, route, and aggregate tasks, but it is not a privileged agent. Capability execution must flow through the existing runtime and its security controls. New capabilities must be registered explicitly. The LLM/provider layer, when used for planning, can only produce structured intent; it never receives direct tool authority.
+
+The Milestone 5 Research capability is deterministic and intentionally does not access the network. Composite orchestration is bounded and sequential in this version.
