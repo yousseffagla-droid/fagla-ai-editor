@@ -1,23 +1,17 @@
 # Agent Contracts
 
-## Agent
+## Core Platform contract
 
-An agent declares name, purpose, capabilities, permissions, and an execution contract.
+An agent declares identity, purpose, capabilities, and declared permissions. The runtime supplies an AgentContext containing request, task, project, workspace, execution context, and scoped memory.
 
-Agents receive an AgentContext containing request, task, project, execution context, and intentionally scoped memory.
+Agents return an AgentResult with COMPLETED, WAITING_FOR_APPROVAL, or FAILED.
 
-Agents return an AgentResult with an explicit status: COMPLETED, WAITING_FOR_APPROVAL, or FAILED.
+Agents do not authorize their own tool use. The runtime resolves tools, evaluates PermissionPolicy, creates approvals when required, and controls execution.
 
-## Runtime rule
+## Task lifecycle
 
-Agents do not decide whether a tool is safe. The runtime resolves the tool through the central registry and applies the permission policy before execution.
+Agents participate in the core task lifecycle but do not mutate task status directly. task.js owns legal transitions.
 
-## Current implementation
+## Future Agents
 
-Milestone 0 provides the base contract and runtime boundary only. No production Coding, Research, QA, or Main Orchestrator agent is claimed as implemented.
-
-## Future Coding Agent
-
-A Coding Agent must operate in an isolated project workspace and follow: inspect → plan → modify workspace → test → QA → approval → merge.
-
-It must never directly modify main or production.
+Coding Agent, Research Agent, QA Agent, and any main orchestrator are future features. They are not implemented in Milestone 1. Future Coding Agent execution must use an isolated workspace and must never directly modify main or production.
