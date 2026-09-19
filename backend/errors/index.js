@@ -1,0 +1,9 @@
+export class ToolExecutionError extends Error { constructor(message, options) { super(message, options); this.name = 'ToolExecutionError'; } }
+export class AuthenticationError extends Error { constructor(message, options) { super(message, options); this.name = 'AuthenticationError'; } }
+export class ValidationError extends Error { constructor(message, options) { super(message, options); this.name = 'ValidationError'; } }
+export class PermissionDeniedError extends Error { constructor(message, options) { super(message, options); this.name = 'PermissionDeniedError'; } }
+export class TimeoutError extends Error { constructor(message, options) { super(message, options); this.name = 'TimeoutError'; } }
+export class ExternalServiceError extends Error { constructor(message, options) { super(message, options); this.name = 'ExternalServiceError'; } }
+export class ModelError extends Error { constructor(message, options) { super(message, options); this.name = 'ModelError'; } }
+export class ApprovalRequiredError extends Error { constructor(message, options) { super(message, options); this.name = 'ApprovalRequiredError'; } }
+export class InvalidToolInvocationError extends Error { constructor(message, options) { super(message, options); this.name = 'InvalidToolInvocationError'; } }

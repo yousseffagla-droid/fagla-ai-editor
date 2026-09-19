@@ -9,6 +9,32 @@ Arabic-first AI video editor MVP.
 - Uploads: Multer
 - Media processing: FFmpeg via `ffmpeg-static`
 - First pipeline stage: video upload → WAV 16 kHz mono extraction
+- Agent platform foundation: JavaScript runtime contracts, tool registry, permissions, approvals, project-workspace boundary, audit logging, and tests
+
+## Agent platform foundation
+
+Milestone 0 establishes the architectural boundary for FAGLA AI without replacing the existing Video Editor.
+
+Implemented in this milestone:
+
+- Agent, AgentContext, AgentResult contracts
+- Runtime lifecycle: REQUEST → PLAN → EXECUTE → OBSERVE → VALIDATE → APPROVAL → COMPLETE
+- ToolDefinition, ToolRegistry, and ToolExecutor
+- Runtime-level risk policy and approval gate
+- Project workspace isolation rules for future Coding Agent execution
+- Task, approval, memory, audit-log, and error foundations
+- Node test infrastructure and GitHub Actions test workflow
+
+Not implemented yet:
+
+- Autonomous planning
+- Production Coding, Research, QA, or Main Orchestrator agents
+- Database persistence
+- Real branch/workspace provisioning or merge automation
+- Powerful shell/filesystem/deployment/publishing tools
+- LLM provider integration
+
+The existing Video Editor remains the active application domain. Its frontend, upload endpoint, and FFmpeg media service are preserved.
 
 ## Run locally
 
@@ -46,11 +72,19 @@ A successful response is HTTP 201 and includes a job ID plus WAV metadata:
 
 The generated files are kept under `storage/uploads/` and `storage/audio/` locally. They are ignored by Git.
 
-### 3. Browser end-to-end test
+### 3. Foundation tests
+
+```bash
+npm test
+```
+
+The tests cover tool registration, permission evaluation, agent contracts, runtime lifecycle, approval-required execution, and invalid tool invocation.
+
+### 4. Browser end-to-end test
 
 Open the app through `http://localhost:3000`, upload a small real video, and press **ابدأ AI Auto Edit**.
 
-The UI now calls `/api/upload`, so this test verifies the actual browser → backend → FFmpeg audio extraction path. The current UI stops after successful audio preparation; Whisper and silence detection are intentionally not connected yet.
+The UI calls `/api/upload`, so this verifies the actual browser → backend → FFmpeg audio extraction path. The current UI stops after successful audio preparation; Whisper and silence detection are intentionally not connected yet.
 
 ## CORS
 
