@@ -2,7 +2,7 @@ import { ValidationError } from '../errors/index.js';
 import { createOrchestrationTask } from './contracts.js';
 
 export class TaskDecomposer{
-  constructor({maxTasks=8}={}){this.maxTasks=maxTasks;}
+  constructor({maxTasks=8,maxDependencyDepth=8}={}){this.maxTasks=maxTasks;this.maxDependencyDepth=maxDependencyDepth;}
   understand(request){
     const text=String(request).toLowerCase();
     if(/research|competitor|market/.test(text)&&/build|create|update|code|website|landing/.test(text))return {type:'composite',goal:request,requirements:[],constraints:[]};
@@ -27,7 +27,7 @@ export class TaskDecomposer{
     const visit=id=>{if(visiting.has(id))throw new ValidationError('Cyclic orchestration dependency');if(visited.has(id))return;visiting.add(id);for(const d of byId.get(id).dependencies)visit(d);visiting.delete(id);visited.add(id);};
     for(const t of tasks)visit(t.id);
     const depth=id=>{const t=byId.get(id);return t.dependencies.length?1+Math.max(...t.dependencies.map(depth)):0;};
-    if(tasks.some(t=>depth(t.id)>=this.maxTasks))throw new ValidationError('Maximum dependency depth exceeded');
+    if(tasks.some(t=>depth(t.id)>=this.maxDependencyDepth))throw new ValidationError('Maximum dependency depth exceeded');
     return true;
   }
 }
